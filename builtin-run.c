@@ -1,6 +1,7 @@
 #include "kvm/builtin-run.h"
 
 #include "kvm/builtin-setup.h"
+#include "kvm/builtin-list.h"
 #include "kvm/virtio-balloon.h"
 #include "kvm/virtio-console.h"
 #include "kvm/parse-options.h"
@@ -699,4 +700,79 @@ int kvm_cmd_run(int argc, const char **argv, const char *prefix)
 	kvm_cmd_run_exit(kvm, ret);
 
 	return ret;
+}
+
+static const char *src_name;
+static const char *dst_name;
+
+static const char * const fork_usage[] = {
+	"lkvm fork [-s src] [-d dst]",
+	NULL
+};
+
+static const struct option fork_options[] = {
+	OPT_GROUP("General options:"),
+	OPT_STRING('s', "src", &src_name, "src_name", "Source virtual machine"),
+	OPT_STRING('d', "dst", &dst_name, "dst_name", "Destination virtual machine"),
+	OPT_END()
+};
+
+static void kvm_fork_help(void)
+{
+	usage_with_options(fork_usage, fork_options);
+}
+
+static void parse_fork_options(int argc, const char **argv)
+{
+	while (argc != 0) {
+		argc = parse_options(argc, argv, fork_options, fork_usage,
+												 PARSE_OPT_STOP_AT_NON_OPTION);
+		if (argc != 0)
+			kvm_fork_help();
+	}
+}
+
+static int do_pre_fork_pause(const char *name, int sock)
+{
+	int r;
+	int vmstate;
+
+	vmstate = get_vmstate(sock);
+	if (vmstate < 0)
+		return vmstate;
+	if (vmstate == KVM_VMSTATE_PAUSED)
+		return 0;
+
+	r = kvm_ipc__send(sock, KVM_IPC_PAUSE);
+	if (r)
+		return r;
+
+	while (vmstate != KVM_VMSTATE_PAUSED)
+		vmstate = get_vmstate(sock);
+
+	return 0;
+}
+
+int kvm_cmd_fork(int argc, const char **argv, const char *prefix)
+{
+	int src;
+	int r;
+	
+	parse_fork_options(argc, argv);
+
+	if (!src_name || !dst_name)
+		kvm_fork_help();
+
+	src = kvm__get_sock_by_instance(src_name);
+
+	if (src <= 0)
+		die("Failed locating source instance");
+
+	r = do_pre_fork_pause (src_name, src);
+
+	printf("Guest %s has been paused\n", src_name);
+
+	close(src);
+
+	return r;
 }

@@ -16,4 +16,5 @@ static struct cmdname_help common_cmds[] = {
   {"stop", "Stop a running instance"},
   {"stat", "Print statistics about a running instance"},
   {"sandbox", "Run a command in a sandboxed guest"},
+  {"fork", "Fork an existing virtual machine"},
 };

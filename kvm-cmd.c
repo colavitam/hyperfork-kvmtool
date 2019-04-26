@@ -32,6 +32,7 @@ struct cmd_struct kvm_commands[] = {
 	{ "setup",	kvm_cmd_setup,		kvm_setup_help,		0 },
 	{ "run",	kvm_cmd_run,		kvm_run_help,		0 },
 	{ "sandbox",	kvm_cmd_sandbox,	kvm_run_help,		0 },
+	{ "fork",	kvm_cmd_fork,	NULL,		0 },
 	{ NULL,		NULL,			NULL,			0 },
 };
 
