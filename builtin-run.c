@@ -734,20 +734,20 @@ static void parse_fork_options(int argc, const char **argv)
 
 static int do_fork(const char *name, int sock)
 {
-    int r;
-    int vmstate;
+	int r;
+	int vmstate;
 
-    vmstate = get_vmstate(sock);
-    if (vmstate < 0)
-	    return vmstate;
+	vmstate = get_vmstate(sock);
+	if (vmstate < 0)
+		return vmstate;
 
-    r = kvm_ipc__send(sock, KVM_IPC_FORK);
-    if (r)
-	    return r;
+	r = kvm_ipc__send(sock, KVM_IPC_FORK);
+	if (r)
+		return r;
 
-    printf("Guest %s forked\n", name);
+	printf("Guest %s forked\n", name);
 
-    return 0;
+	return 0;
 }
 
 int kvm_cmd_fork(int argc, const char **argv, const char *prefix)
