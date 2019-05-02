@@ -767,8 +767,6 @@ int kvm_cmd_fork(int argc, const char **argv, const char *prefix)
 
 	r = do_fork(src_name, src);
 
-	printf("Guest %s has been paused\n", src_name);
-
 	close(src);
 
 	return r;
