@@ -539,6 +539,7 @@ void kvm__pause(struct kvm *kvm)
 
 void kvm__fork(struct kvm *kvm)
 {
+	static char name[20];
 	int pid = fork();
 	switch (pid)
 	{
@@ -547,6 +548,12 @@ void kvm__fork(struct kvm *kvm)
 		break;
 	case 0:
 		// child
+		sprintf(name, "guest-%u", getpid());
+		kvm->cfg.guest_name = name;
+		int r = kvm_ipc__init(kvm);
+		if (r < 0)
+			die("Could not create new socket for forked vm");
+
 		// TODO deal with KVM state
 		break;
 	default:
