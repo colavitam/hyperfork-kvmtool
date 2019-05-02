@@ -732,32 +732,29 @@ static void parse_fork_options(int argc, const char **argv)
 	}
 }
 
-static int do_pre_fork_pause(const char *name, int sock)
+static int do_fork(const char *name, int sock)
 {
-	int r;
-	int vmstate;
+    int r;
+    int vmstate;
 
-	vmstate = get_vmstate(sock);
-	if (vmstate < 0)
-		return vmstate;
-	if (vmstate == KVM_VMSTATE_PAUSED)
-		return 0;
+    vmstate = get_vmstate(sock);
+    if (vmstate < 0)
+	    return vmstate;
 
-	r = kvm_ipc__send(sock, KVM_IPC_PAUSE);
-	if (r)
-		return r;
+    r = kvm_ipc__send(sock, KVM_IPC_FORK);
+    if (r)
+	    return r;
 
-	while (vmstate != KVM_VMSTATE_PAUSED)
-		vmstate = get_vmstate(sock);
+    printf("Guest %s forked\n", name);
 
-	return 0;
+    return 0;
 }
 
 int kvm_cmd_fork(int argc, const char **argv, const char *prefix)
 {
 	int src;
 	int r;
-	
+
 	parse_fork_options(argc, argv);
 
 	if (!src_name || !dst_name)
@@ -768,7 +765,7 @@ int kvm_cmd_fork(int argc, const char **argv, const char *prefix)
 	if (src <= 0)
 		die("Failed locating source instance");
 
-	r = do_pre_fork_pause (src_name, src);
+	r = do_fork(src_name, src);
 
 	printf("Guest %s has been paused\n", src_name);
 

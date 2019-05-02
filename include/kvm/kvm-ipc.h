@@ -13,6 +13,7 @@ enum {
 	KVM_IPC_STOP	= 6,
 	KVM_IPC_PID	= 7,
 	KVM_IPC_VMSTATE	= 8,
+	KVM_IPC_FORK	= 9,
 };
 
 int kvm_ipc__register_handler(u32 type, void (*cb)(struct kvm *kvm,

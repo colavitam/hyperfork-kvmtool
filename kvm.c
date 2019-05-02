@@ -537,6 +537,25 @@ void kvm__pause(struct kvm *kvm)
 	close(pause_event);
 }
 
+void kvm__fork(struct kvm *kvm)
+{
+	int pid = fork();
+	switch (pid)
+	{
+	case -1:
+		die("Failed to fork process");
+		break;
+	case 0:
+		// child
+		// TODO deal with KVM state
+		break;
+	default:
+		// parent
+		// TODO
+		break;
+	}
+}
+
 void kvm__notify_paused(void)
 {
 	u64 p = 1;
