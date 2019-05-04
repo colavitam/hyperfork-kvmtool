@@ -534,7 +534,6 @@ int kvm_ipc__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 	int sock;
 	struct epoll_event ev = {0};
 
-	kvm->cfg.guest_name = "TODOguest";
 	sock = kvm__create_socket(kvm);
 	ret = write(stop_fd, &val, sizeof(val));
 	if (ret < 0)

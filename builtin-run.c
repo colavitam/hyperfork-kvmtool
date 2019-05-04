@@ -658,13 +658,6 @@ static struct kvm *kvm_cmd_run_init(int argc, const char **argv)
 	if (init_list__init(kvm) < 0)
 		die ("Initialisation failed");
 
-	struct pre_copy_context ctxt;
-	if (init_list__pre_copy(kvm, &ctxt) < 0)
-		die ("Pre copy failed");
-
-	if (init_list__post_copy(kvm, &ctxt) < 0)
-		die ("Post copy failed");
-
 	return kvm;
 }
 

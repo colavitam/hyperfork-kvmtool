@@ -11,6 +11,8 @@
 #include <linux/list.h>
 #include <linux/err.h>
 
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <sys/un.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -585,6 +587,10 @@ void kvm__pause(struct kvm *kvm)
 void kvm__fork(struct kvm *kvm)
 {
 	static char name[20];
+	struct pre_copy_context ctxt;
+	if (init_list__pre_copy(kvm, &ctxt) < 0)
+		die ("Pre copy failed");
+
 	int pid = fork();
 	switch (pid)
 	{
@@ -592,18 +598,17 @@ void kvm__fork(struct kvm *kvm)
 		die("Failed to fork process");
 		break;
 	case 0:
-		// child
+		// Child
 		sprintf(name, "guest-%u", getpid());
 		kvm->cfg.guest_name = name;
-		int r = kvm_ipc__init(kvm);
-		if (r < 0)
-			die("Could not create new socket for forked vm");
 
-		// TODO deal with KVM state
+		if (init_list__post_copy(kvm, &ctxt) < 0)
+			die ("Post copy failed");
+
 		break;
 	default:
-		// parent
-		// TODO
+		// Parent
+		wait(NULL);
 		break;
 	}
 }
