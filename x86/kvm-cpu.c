@@ -125,6 +125,44 @@ struct kvm_cpu *kvm_cpu__arch_init(struct kvm *kvm, unsigned long cpu_id)
 	return vcpu;
 }
 
+struct kvm_cpu *kvm_cpu__arch_post_copy(struct kvm *kvm, unsigned long cpu_id)
+{
+	struct kvm_cpu *vcpu;
+	int mmap_size;
+	int coalesced_offset;
+
+	vcpu = kvm_cpu__new(kvm);
+	if (!vcpu)
+		return NULL;
+
+	vcpu->cpu_id = cpu_id;
+
+	vcpu->vcpu_fd = ioctl(vcpu->kvm->vm_fd, KVM_CREATE_VCPU, cpu_id);
+	if (vcpu->vcpu_fd < 0)
+		die_perror("KVM_CREATE_VCPU ioctl");
+
+	mmap_size = ioctl(vcpu->kvm->sys_fd, KVM_GET_VCPU_MMAP_SIZE, 0);
+	if (mmap_size < 0)
+		die_perror("KVM_GET_VCPU_MMAP_SIZE ioctl");
+
+	vcpu->kvm_run = mmap(NULL, mmap_size, PROT_RW, MAP_SHARED, vcpu->vcpu_fd, 0);
+	if (vcpu->kvm_run == MAP_FAILED)
+		die("unable to mmap vcpu fd");
+
+	coalesced_offset = ioctl(kvm->sys_fd, KVM_CHECK_EXTENSION, KVM_CAP_COALESCED_MMIO);
+	if (coalesced_offset)
+		vcpu->ring = (void *)vcpu->kvm_run + (coalesced_offset * PAGE_SIZE);
+
+	if (kvm_cpu__set_lint(vcpu))
+		die_perror("KVM_SET_LAPIC failed");
+
+	vcpu->is_running = true;
+
+	/* TODO: copy over all the cpu state... */
+
+	return vcpu;
+}
+
 static struct kvm_msrs *kvm_msrs__new(size_t nmsrs)
 {
 	struct kvm_msrs *vcpu = calloc(1, sizeof(*vcpu) + (sizeof(struct kvm_msr_entry) * nmsrs));
