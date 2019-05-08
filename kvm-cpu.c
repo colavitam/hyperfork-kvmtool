@@ -304,6 +304,23 @@ fail_alloc:
 }
 base_init(kvm_cpu__init);
 
+int kvm_cpu__pre_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
+{
+	for (int i = 0; i < kvm->nrcpus; i++) {
+		if (!kvm->cpus[i]) {
+			pr_warning("KVM VCPU found uninitialized");
+			goto fail;
+		}
+		kvm_cpu__arch_pre_copy(kvm->cpus[i], ctxt);
+	}
+
+  return 0;
+
+fail:
+  return -ENOMEM;
+}
+base_pre_copy(kvm_cpu__pre_copy);
+
 int kvm_cpu__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 {
 	int max_cpus, recommended_cpus, i;
@@ -340,7 +357,7 @@ int kvm_cpu__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 	}
 
 	for (i = 0; i < kvm->nrcpus; i++) {
-		kvm->cpus[i] = kvm_cpu__arch_post_copy(kvm, i);
+		kvm->cpus[i] = kvm_cpu__arch_post_copy(kvm, i, ctxt);
 		if (!kvm->cpus[i]) {
 			pr_warning("unable to initialize KVM VCPU");
 			goto fail_alloc;

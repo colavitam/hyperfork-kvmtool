@@ -605,10 +605,15 @@ void kvm__fork(struct kvm *kvm)
 		if (init_list__post_copy(kvm, &ctxt) < 0)
 			die ("Post copy failed");
 
+    /* Make the PGID unique from the parent such that we can
+     * re-attach the process to a new terminal window. */
+    if (setpgid(0,0)) {
+			die("Failed to set PGID of child");
+    }
+
 		break;
 	default:
 		// Parent
-		wait(NULL);
 		break;
 	}
 }
