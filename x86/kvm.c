@@ -166,6 +166,51 @@ void kvm__arch_init(struct kvm *kvm, const char *hugetlbfs_path, u64 ram_size)
 		die_perror("KVM_CREATE_IRQCHIP ioctl");
 }
 
+void kvm__arch_post_copy(struct kvm *kvm, const char *hugetlbfs_path, u64 ram_size)
+{
+	struct kvm_pit_config pit_config = { .flags = 0, };
+	int ret;
+	void *new_ram;
+
+	ret = ioctl(kvm->vm_fd, KVM_SET_TSS_ADDR, 0xfffbd000);
+	if (ret < 0)
+		die_perror("KVM_SET_TSS_ADDR ioctl");
+
+	ret = ioctl(kvm->vm_fd, KVM_CREATE_PIT2, &pit_config);
+	if (ret < 0)
+		die_perror("KVM_CREATE_PIT2 ioctl");
+
+	/* We've forked at this point, so we may or may not need to copy our memory state */
+	if (ram_size < KVM_32BIT_GAP_START) {
+		kvm->ram_size = ram_size;
+		if (hugetlbfs_path) {
+			new_ram = mmap_anon_or_hugetlbfs(kvm, hugetlbfs_path, ram_size);
+			memcpy(new_ram, kvm->ram_start, ram_size);
+		}
+	} else {
+		if (hugetlbfs_path) {
+			new_ram = mmap_anon_or_hugetlbfs(kvm, hugetlbfs_path, ram_size + KVM_32BIT_GAP_SIZE);
+			memcpy(new_ram, kvm->ram_start, ram_size + KVM_32BIT_GAP_SIZE);
+			if (kvm->ram_start != MAP_FAILED)
+				/*
+				 * We mprotect the gap (see kvm__init_ram() for details) PROT_NONE so that
+				 * if we accidently write to it, we will know.
+				 */
+				mprotect(kvm->ram_start + KVM_32BIT_GAP_START, KVM_32BIT_GAP_SIZE, PROT_NONE);
+		}
+
+		kvm->ram_size = ram_size + KVM_32BIT_GAP_SIZE;
+	}
+	if (kvm->ram_start == MAP_FAILED)
+		die("out of memory");
+
+	madvise(kvm->ram_start, kvm->ram_size, MADV_MERGEABLE);
+
+	ret = ioctl(kvm->vm_fd, KVM_CREATE_IRQCHIP);
+	if (ret < 0)
+		die_perror("KVM_CREATE_IRQCHIP ioctl");
+}
+
 void kvm__arch_delete_ram(struct kvm *kvm)
 {
 	munmap(kvm->ram_start, kvm->ram_size);

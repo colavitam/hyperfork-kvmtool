@@ -125,6 +125,91 @@ struct kvm_cpu *kvm_cpu__arch_init(struct kvm *kvm, unsigned long cpu_id)
 	return vcpu;
 }
 
+void kvm_cpu__arch_pre_copy(struct kvm_cpu *vcpu, struct pre_copy_context *ctxt)
+{
+	if (ioctl(vcpu->vcpu_fd, KVM_GET_REGS, &ctxt->regs) < 0)
+		die_perror("KVM_GET_REGS failed");
+
+	if (ioctl(vcpu->vcpu_fd, KVM_GET_SREGS, &ctxt->sregs) < 0)
+		die_perror("KVM_GET_SREGS failed");
+
+	if (ioctl(vcpu->vcpu_fd, KVM_GET_FPU, &ctxt->fpu) < 0)
+		die_perror("KVM_GET_FPU failed");
+
+	if (ioctl(vcpu->vcpu_fd, KVM_GET_MSRS, vcpu->msrs) < 0)
+		die_perror("KVM_GET_MSRS failed");
+	ctxt->msrs = calloc(1,
+      sizeof(*vcpu->msrs) + (sizeof(struct kvm_msr_entry) * vcpu->msrs->nmsrs));
+  ctxt->msrs->nmsrs = vcpu->msrs->nmsrs;
+  ctxt->msrs->pad = vcpu->msrs->pad;
+  memcpy(ctxt->msrs->entries, vcpu->msrs->entries,
+      (sizeof(struct kvm_msr_entry) * vcpu->msrs->nmsrs));
+}
+
+struct kvm_cpu *kvm_cpu__arch_post_copy(struct kvm *kvm, unsigned long cpu_id,
+    struct pre_copy_context *ctxt)
+{
+	struct kvm_cpu *vcpu;
+	int mmap_size;
+	int coalesced_offset;
+
+	vcpu = kvm_cpu__new(kvm);
+	if (!vcpu)
+		return NULL;
+
+	vcpu->cpu_id = cpu_id;
+
+	vcpu->vcpu_fd = ioctl(vcpu->kvm->vm_fd, KVM_CREATE_VCPU, cpu_id);
+	if (vcpu->vcpu_fd < 0)
+		die_perror("KVM_CREATE_VCPU ioctl");
+
+	mmap_size = ioctl(vcpu->kvm->sys_fd, KVM_GET_VCPU_MMAP_SIZE, 0);
+	if (mmap_size < 0)
+		die_perror("KVM_GET_VCPU_MMAP_SIZE ioctl");
+
+	vcpu->kvm_run = mmap(NULL, mmap_size, PROT_RW, MAP_SHARED, vcpu->vcpu_fd, 0);
+	if (vcpu->kvm_run == MAP_FAILED)
+		die("unable to mmap vcpu fd");
+
+	coalesced_offset = ioctl(kvm->sys_fd, KVM_CHECK_EXTENSION, KVM_CAP_COALESCED_MMIO);
+	if (coalesced_offset)
+		vcpu->ring = (void *)vcpu->kvm_run + (coalesced_offset * PAGE_SIZE);
+
+	if (kvm_cpu__set_lint(vcpu))
+		die_perror("KVM_SET_LAPIC failed");
+
+	vcpu->is_running = true;
+
+	if (ioctl(vcpu->vcpu_fd, KVM_SET_REGS, &ctxt->regs) < 0)
+		die_perror("KVM_SET_REGS failed");
+
+  /* Begin special registers copy
+   * Don't fuck with the control registers. Only set the segment registers. */
+	if (ioctl(vcpu->vcpu_fd, KVM_GET_SREGS, &vcpu->sregs) < 0)
+		die_perror("KVM_GET_SREGS failed");
+
+  vcpu->sregs.cs = ctxt->sregs.cs;
+  vcpu->sregs.ds = ctxt->sregs.ds;
+  vcpu->sregs.es = ctxt->sregs.es;
+  vcpu->sregs.fs = ctxt->sregs.fs;
+  vcpu->sregs.gs = ctxt->sregs.gs;
+  vcpu->sregs.ss = ctxt->sregs.ss;
+
+	if (ioctl(vcpu->vcpu_fd, KVM_SET_SREGS, &vcpu->sregs) < 0)
+		die_perror("KVM_SET_SREGS failed");
+  /* End special registers copy */
+
+	if (ioctl(vcpu->vcpu_fd, KVM_SET_FPU, &ctxt->fpu) < 0)
+		die_perror("KVM_SET_FPU failed");
+
+	if (ioctl(vcpu->vcpu_fd, KVM_SET_MSRS, ctxt->msrs) < 0)
+		die_perror("KVM_SET_MSRS failed");
+
+  /* TODO: Threading? */
+
+	return vcpu;
+}
+
 static struct kvm_msrs *kvm_msrs__new(size_t nmsrs)
 {
 	struct kvm_msrs *vcpu = calloc(1, sizeof(*vcpu) + (sizeof(struct kvm_msr_entry) * nmsrs));

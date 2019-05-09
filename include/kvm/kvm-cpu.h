@@ -10,8 +10,13 @@ struct kvm_cpu_task {
 };
 
 int kvm_cpu__init(struct kvm *kvm);
+int kvm_cpu__pre_copy(struct kvm *kvm, struct pre_copy_context *ctxt);
+int kvm_cpu__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt);
 int kvm_cpu__exit(struct kvm *kvm);
 struct kvm_cpu *kvm_cpu__arch_init(struct kvm *kvm, unsigned long cpu_id);
+void kvm_cpu__arch_pre_copy(struct kvm_cpu *vcpu, struct pre_copy_context *ctxt);
+struct kvm_cpu *kvm_cpu__arch_post_copy(struct kvm *kvm, unsigned long cpu_id,
+    struct pre_copy_context *ctxt);
 void kvm_cpu__delete(struct kvm_cpu *vcpu);
 void kvm_cpu__reset_vcpu(struct kvm_cpu *vcpu);
 void kvm_cpu__setup_cpuid(struct kvm_cpu *vcpu);

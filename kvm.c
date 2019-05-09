@@ -11,6 +11,8 @@
 #include <linux/list.h>
 #include <linux/err.h>
 
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <sys/un.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -421,6 +423,51 @@ err:
 }
 core_init(kvm__init);
 
+int kvm__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
+{
+	int ret;
+	struct kvm_mem_bank *bank, *tmp;
+
+	close(kvm->vm_fd);
+
+	kvm->sys_fd = open(kvm->cfg.dev, O_RDWR);
+	if (kvm->sys_fd < 0) {
+		if (errno == ENOENT)
+			pr_err("'%s' not found. Please make sure your kernel has CONFIG_KVM "
+					"enabled and that the KVM modules are loaded.", kvm->cfg.dev);
+		else if (errno == ENODEV)
+			pr_err("'%s' KVM driver not available.\n  # (If the KVM "
+					"module is loaded then 'dmesg' may offer further clues "
+					"about the failure.)", kvm->cfg.dev);
+		else
+			pr_err("Could not open %s: ", kvm->cfg.dev);
+
+		ret = -errno;
+		return ret;
+	}
+
+	kvm->vm_fd = ioctl(kvm->sys_fd, KVM_CREATE_VM, KVM_VM_TYPE);
+	if (kvm->vm_fd < 0) {
+		perror("SADF");
+		printf("sys_fd: %d, vm_fd: %d\n", kvm->sys_fd, kvm->vm_fd);
+		pr_err("KVM_CREATE_VM ioctl");
+		ret = kvm->vm_fd;
+		return ret;
+	}
+
+	kvm__arch_post_copy(kvm, kvm->cfg.hugetlbfs_path, kvm->cfg.ram_size);
+
+	list_for_each_entry_safe(bank, tmp, &kvm->mem_banks, list) {
+		list_del(&bank->list);
+		free(bank);
+	}
+
+	kvm__init_ram(kvm);
+
+	return 0;
+}
+core_post_copy(kvm__post_copy);
+
 /* RFC 1952 */
 #define GZIP_ID1		0x1f
 #define GZIP_ID2		0x8b
@@ -540,6 +587,10 @@ void kvm__pause(struct kvm *kvm)
 void kvm__fork(struct kvm *kvm)
 {
 	static char name[20];
+	struct pre_copy_context ctxt;
+	if (init_list__pre_copy(kvm, &ctxt) < 0)
+		die ("Pre copy failed");
+
 	int pid = fork();
 	switch (pid)
 	{
@@ -547,18 +598,22 @@ void kvm__fork(struct kvm *kvm)
 		die("Failed to fork process");
 		break;
 	case 0:
-		// child
+		// Child
 		sprintf(name, "guest-%u", getpid());
 		kvm->cfg.guest_name = name;
-		int r = kvm_ipc__init(kvm);
-		if (r < 0)
-			die("Could not create new socket for forked vm");
 
-		// TODO deal with KVM state
+		if (init_list__post_copy(kvm, &ctxt) < 0)
+			die ("Post copy failed");
+
+    /* Make the PGID unique from the parent such that we can
+     * re-attach the process to a new terminal window. */
+    if (setpgid(0,0)) {
+			die("Failed to set PGID of child");
+    }
+
 		break;
 	default:
-		// parent
-		// TODO
+		// Parent
 		break;
 	}
 }

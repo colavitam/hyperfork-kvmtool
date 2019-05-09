@@ -64,3 +64,17 @@ int irq__init(struct kvm *kvm)
 	return 0;
 }
 dev_base_init(irq__init);
+
+int irq__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
+{
+	int r;
+
+	r = ioctl(kvm->vm_fd, KVM_SET_GSI_ROUTING, irq_routing);
+	if (r) {
+		free(irq_routing);
+		return errno;
+	}
+
+	return 0;
+}
+dev_base_post_copy(irq__post_copy);

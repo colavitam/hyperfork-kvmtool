@@ -527,6 +527,78 @@ err:
 }
 base_init(kvm_ipc__init);
 
+int kvm_ipc__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
+{
+	int ret;
+	u64 val = 1;
+	int sock;
+	struct epoll_event ev = {0};
+
+	sock = kvm__create_socket(kvm);
+	ret = write(stop_fd, &val, sizeof(val));
+	if (ret < 0)
+		return ret;
+
+	close(server_fd);
+	close(epoll_fd);
+
+	server_fd = sock;
+
+	epoll_fd = epoll_create(KVM_IPC_MAX_MSGS);
+	if (epoll_fd < 0) {
+		perror("epoll_create");
+		ret = epoll_fd;
+		goto err;
+	}
+
+	ev.events = EPOLLIN | EPOLLET;
+	ev.data.fd = sock;
+	if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, sock, &ev) < 0) {
+		pr_err("Failed adding socket to epoll");
+		ret = -EFAULT;
+		goto err_epoll;
+	}
+
+	stop_fd = eventfd(0, 0);
+	if (stop_fd < 0) {
+		perror("eventfd");
+		ret = stop_fd;
+		goto err_epoll;
+	}
+
+	ev.events = EPOLLIN | EPOLLET;
+	ev.data.fd = stop_fd;
+	if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, stop_fd, &ev) < 0) {
+		pr_err("Failed adding stop event to epoll");
+		ret = -EFAULT;
+		goto err_stop;
+	}
+
+	if (pthread_create(&thread, NULL, kvm_ipc__thread, kvm) != 0) {
+		pr_err("Failed starting IPC thread");
+		ret = -EFAULT;
+		goto err_stop;
+	}
+
+	kvm_ipc__register_handler(KVM_IPC_PID, kvm__pid);
+	kvm_ipc__register_handler(KVM_IPC_DEBUG, handle_debug);
+	kvm_ipc__register_handler(KVM_IPC_PAUSE, handle_pause);
+	kvm_ipc__register_handler(KVM_IPC_RESUME, handle_pause);
+	kvm_ipc__register_handler(KVM_IPC_STOP, handle_stop);
+	kvm_ipc__register_handler(KVM_IPC_VMSTATE, handle_vmstate);
+	signal(SIGUSR1, handle_sigusr1);
+
+	return 0;
+
+err_stop:
+	close(stop_fd);
+err_epoll:
+	close(epoll_fd);
+err:
+	return ret;
+}
+base_post_copy(kvm_ipc__post_copy);
+
 int kvm_ipc__exit(struct kvm *kvm)
 {
 	u64 val = 1;
