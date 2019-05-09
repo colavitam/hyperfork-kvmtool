@@ -624,6 +624,7 @@ void kvm__fork(struct kvm *kvm)
 		break;
 	default:
 		// Parent
+
 		break;
 	}
 }

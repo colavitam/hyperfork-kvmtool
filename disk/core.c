@@ -351,6 +351,12 @@ int disk_image__init(struct kvm *kvm)
 }
 dev_base_init(disk_image__init);
 
+int disk_image__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
+{
+  return disk_image__init(kvm);
+}
+dev_base_post_copy(disk_image__post_copy);
+
 int disk_image__exit(struct kvm *kvm)
 {
 	return disk_image__close_all(kvm->disks, kvm->nr_disks);

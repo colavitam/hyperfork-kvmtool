@@ -29,6 +29,8 @@ enum {
 
 #define MAX_DISK_IMAGES         4
 
+struct pre_copy_context;
+
 struct disk_image;
 
 struct disk_image_operations {
@@ -71,6 +73,7 @@ struct disk_image {
 
 int disk_img_name_parser(const struct option *opt, const char *arg, int unset);
 int disk_image__init(struct kvm *kvm);
+int disk_image__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt);
 int disk_image__exit(struct kvm *kvm);
 struct disk_image *disk_image__new(int fd, u64 size, struct disk_image_operations *ops, int mmap);
 int disk_image__flush(struct disk_image *disk);
