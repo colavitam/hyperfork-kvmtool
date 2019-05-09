@@ -311,7 +311,11 @@ int kvm_cpu__pre_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 			pr_warning("KVM VCPU found uninitialized");
 			goto fail;
 		}
-		kvm_cpu__arch_pre_copy(kvm->cpus[i], ctxt);
+		ctxt->regs = calloc(kvm->nrcpus, sizeof(*ctxt->regs));
+		ctxt->sregs = calloc(kvm->nrcpus, sizeof(*ctxt->sregs));
+		ctxt->fpu = calloc(kvm->nrcpus, sizeof(*ctxt->fpu));
+		ctxt->msrs = calloc(kvm->nrcpus, sizeof(*ctxt->msrs));
+		kvm_cpu__arch_pre_copy(kvm->cpus[i], ctxt, i);
 	}
 
   return 0;

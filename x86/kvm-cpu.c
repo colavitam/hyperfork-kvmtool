@@ -125,25 +125,26 @@ struct kvm_cpu *kvm_cpu__arch_init(struct kvm *kvm, unsigned long cpu_id)
 	return vcpu;
 }
 
-void kvm_cpu__arch_pre_copy(struct kvm_cpu *vcpu, struct pre_copy_context *ctxt)
+void kvm_cpu__arch_pre_copy(struct kvm_cpu *vcpu, struct pre_copy_context *ctxt, int vcpu_idx)
 {
-	if (ioctl(vcpu->vcpu_fd, KVM_GET_REGS, &ctxt->regs) < 0)
+	if (ioctl(vcpu->vcpu_fd, KVM_GET_REGS, &ctxt->regs[vcpu_idx]) < 0)
 		die_perror("KVM_GET_REGS failed");
 
-	if (ioctl(vcpu->vcpu_fd, KVM_GET_SREGS, &ctxt->sregs) < 0)
+	if (ioctl(vcpu->vcpu_fd, KVM_GET_SREGS, &ctxt->sregs[vcpu_idx]) < 0)
 		die_perror("KVM_GET_SREGS failed");
 
-	if (ioctl(vcpu->vcpu_fd, KVM_GET_FPU, &ctxt->fpu) < 0)
+	if (ioctl(vcpu->vcpu_fd, KVM_GET_FPU, &ctxt->fpu[vcpu_idx]) < 0)
 		die_perror("KVM_GET_FPU failed");
 
 	if (ioctl(vcpu->vcpu_fd, KVM_GET_MSRS, vcpu->msrs) < 0)
 		die_perror("KVM_GET_MSRS failed");
-	ctxt->msrs = calloc(1,
-      sizeof(*vcpu->msrs) + (sizeof(struct kvm_msr_entry) * vcpu->msrs->nmsrs));
-  ctxt->msrs->nmsrs = vcpu->msrs->nmsrs;
-  ctxt->msrs->pad = vcpu->msrs->pad;
-  memcpy(ctxt->msrs->entries, vcpu->msrs->entries,
-      (sizeof(struct kvm_msr_entry) * vcpu->msrs->nmsrs));
+
+	ctxt->msrs[vcpu_idx] = calloc(1,
+			sizeof(*vcpu->msrs) + (sizeof(struct kvm_msr_entry) * vcpu->msrs->nmsrs));
+	ctxt->msrs[vcpu_idx]->nmsrs = vcpu->msrs->nmsrs;
+	ctxt->msrs[vcpu_idx]->pad = vcpu->msrs->pad;
+	memcpy(ctxt->msrs[vcpu_idx]->entries, vcpu->msrs->entries,
+			(sizeof(struct kvm_msr_entry) * vcpu->msrs->nmsrs));
 }
 
 struct kvm_cpu *kvm_cpu__arch_post_copy(struct kvm *kvm, unsigned long cpu_id,
@@ -180,32 +181,37 @@ struct kvm_cpu *kvm_cpu__arch_post_copy(struct kvm *kvm, unsigned long cpu_id,
 
 	vcpu->is_running = true;
 
-	if (ioctl(vcpu->vcpu_fd, KVM_SET_REGS, &ctxt->regs) < 0)
+	if (ioctl(vcpu->vcpu_fd, KVM_SET_REGS, &ctxt->regs[cpu_id]) < 0)
 		die_perror("KVM_SET_REGS failed");
 
-  /* Begin special registers copy
-   * Don't fuck with the control registers. Only set the segment registers. */
+	if (ioctl(vcpu->vcpu_fd, KVM_SET_FPU, &ctxt->fpu[cpu_id]) < 0)
+		die_perror("KVM_SET_FPU failed");
+
+	if (ioctl(vcpu->vcpu_fd, KVM_SET_MSRS, ctxt->msrs[cpu_id]) < 0)
+		die_perror("KVM_SET_MSRS failed");
+
+	/* Begin special registers copy
+	 * Don't fuck with the control registers. Only set the segment registers. */
+	/*
 	if (ioctl(vcpu->vcpu_fd, KVM_GET_SREGS, &vcpu->sregs) < 0)
 		die_perror("KVM_GET_SREGS failed");
 
-  vcpu->sregs.cs = ctxt->sregs.cs;
-  vcpu->sregs.ds = ctxt->sregs.ds;
-  vcpu->sregs.es = ctxt->sregs.es;
-  vcpu->sregs.fs = ctxt->sregs.fs;
-  vcpu->sregs.gs = ctxt->sregs.gs;
-  vcpu->sregs.ss = ctxt->sregs.ss;
+	vcpu->sregs.cs = ctxt->sregs[cpu_id].cs;
+	vcpu->sregs.ds = ctxt->sregs[cpu_id].ds;
+	vcpu->sregs.es = ctxt->sregs[cpu_id].es;
+	vcpu->sregs.fs = ctxt->sregs[cpu_id].fs;
+	vcpu->sregs.gs = ctxt->sregs[cpu_id].gs;
+	vcpu->sregs.ss = ctxt->sregs[cpu_id].ss;
+	*/
 
-	if (ioctl(vcpu->vcpu_fd, KVM_SET_SREGS, &vcpu->sregs) < 0)
+	printf("Setting %ld\n", cpu_id);
+	if (ioctl(vcpu->vcpu_fd, KVM_SET_SREGS, &ctxt->sregs[cpu_id]) < 0)
 		die_perror("KVM_SET_SREGS failed");
-  /* End special registers copy */
+	/* End special registers copy */
 
-	if (ioctl(vcpu->vcpu_fd, KVM_SET_FPU, &ctxt->fpu) < 0)
-		die_perror("KVM_SET_FPU failed");
 
-	if (ioctl(vcpu->vcpu_fd, KVM_SET_MSRS, ctxt->msrs) < 0)
-		die_perror("KVM_SET_MSRS failed");
 
-  /* TODO: Threading? */
+	/* TODO: Threading? */
 
 	return vcpu;
 }
