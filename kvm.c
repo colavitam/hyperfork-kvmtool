@@ -612,6 +612,10 @@ void kvm__fork(struct kvm *kvm)
 			die("Failed to set PGID of child");
     }
 
+    /* Unpause the child VM */
+    kvm->vm_state = KVM_VMSTATE_RUNNING;
+    kvm__continue(kvm);
+
     /* Start VCPU threads and take over duties of main lkvm run thread.
      * We have already created another kvm_ipc thread, so here
      * we just use this one to take over the role of lkvm. Basically
@@ -624,7 +628,6 @@ void kvm__fork(struct kvm *kvm)
 		break;
 	default:
 		// Parent
-
 		break;
 	}
 }

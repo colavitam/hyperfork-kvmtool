@@ -530,15 +530,12 @@ base_init(kvm_ipc__init);
 int kvm_ipc__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 {
 	int ret;
-	u64 val = 1;
 	int sock;
 	struct epoll_event ev = {0};
 
 	sock = kvm__create_socket(kvm);
-	ret = write(stop_fd, &val, sizeof(val));
-	if (ret < 0)
-		return ret;
 
+  close(stop_fd);
 	close(server_fd);
 	close(epoll_fd);
 
