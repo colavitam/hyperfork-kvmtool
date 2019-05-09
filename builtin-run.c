@@ -661,7 +661,7 @@ static struct kvm *kvm_cmd_run_init(int argc, const char **argv)
 	return kvm;
 }
 
-static int kvm_cmd_run_work(struct kvm *kvm)
+int kvm_cmd_run_work(struct kvm *kvm)
 {
 	int i;
 
@@ -677,7 +677,7 @@ static int kvm_cmd_run_work(struct kvm *kvm)
 	return kvm_cpu__exit(kvm);
 }
 
-static void kvm_cmd_run_exit(struct kvm *kvm, int guest_ret)
+void kvm_cmd_run_exit(struct kvm *kvm, int guest_ret)
 {
 	compat__print_all_messages();
 

@@ -5,6 +5,7 @@
 #include "kvm/mutex.h"
 #include "kvm/kvm-cpu.h"
 #include "kvm/kvm-ipc.h"
+#include "kvm/builtin-run.h"
 
 #include <linux/kernel.h>
 #include <linux/kvm.h>
@@ -611,6 +612,15 @@ void kvm__fork(struct kvm *kvm)
 			die("Failed to set PGID of child");
     }
 
+    /* Start VCPU threads and take over duties of main lkvm run thread.
+     * We have already created another kvm_ipc thread, so here
+     * we just use this one to take over the role of lkvm. Basically
+     * that just means waiting on the VCPU0 thread to exit and then
+     * exiting gracefully. */
+    int ret = kvm_cmd_run_work(kvm);
+    kvm_cmd_run_exit(kvm, ret);
+
+    die("Forked VM exiting");
 		break;
 	default:
 		// Parent
