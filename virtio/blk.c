@@ -358,6 +358,15 @@ cleanup:
 }
 virtio_dev_init(virtio_blk__init);
 
+int virtio_blk__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
+{
+  // TODO
+  //if (pthread_create(&bdev->io_thread, NULL, virtio_blk_thread, bdev))
+  //  return -errno;
+  return 0;
+}
+virtio_dev_post_copy(virtio_blk__post_copy);
+
 int virtio_blk__exit(struct kvm *kvm)
 {
 	while (!list_empty(&bdevs)) {

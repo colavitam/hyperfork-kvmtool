@@ -353,7 +353,7 @@ dev_base_init(disk_image__init);
 
 int disk_image__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 {
-  return disk_image__init(kvm);
+  return 0;
 }
 dev_base_post_copy(disk_image__post_copy);
 
