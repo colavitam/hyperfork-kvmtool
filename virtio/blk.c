@@ -360,10 +360,20 @@ virtio_dev_init(virtio_blk__init);
 
 int virtio_blk__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 {
-  // TODO
-  //if (pthread_create(&bdev->io_thread, NULL, virtio_blk_thread, bdev))
-  //  return -errno;
-  return 0;
+	struct blk_dev *bdev;
+
+	list_for_each_entry(bdev, &bdevs, list) {
+		close(bdev->io_efd);
+
+		bdev->io_efd = eventfd(0, 0);
+		if (bdev->io_efd < 0)
+			return -errno;
+
+		if (pthread_create(&bdev->io_thread, NULL, virtio_blk_thread, bdev))
+			return -errno;
+	}
+
+	return 0;
 }
 virtio_dev_post_copy(virtio_blk__post_copy);
 
