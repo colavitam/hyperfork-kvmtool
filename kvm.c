@@ -598,10 +598,12 @@ void kvm__fork(struct kvm *kvm)
 	if (init_list__pre_copy(kvm, &ctxt) < 0)
 		die ("Pre copy failed");
 
+	/*
 	kvm_cpu__set_debug_fd(STDOUT_FILENO);
 	kvm_cpu__show_registers(kvm->cpus[0]);
 	kvm_cpu__show_code(kvm->cpus[0]);
 	kvm_cpu__show_page_tables(kvm->cpus[0]);
+	*/
 
 	int pid = fork();
 	switch (pid)

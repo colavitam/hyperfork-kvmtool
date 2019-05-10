@@ -7,6 +7,7 @@
 #include "kvm/util.h"
 
 struct kvm;
+struct pre_copy_context;
 
 struct ioevent {
 	u64			io_addr;
@@ -25,6 +26,7 @@ struct ioevent {
 #define IOEVENTFD_FLAG_USER_POLL	(1 << 1)
 
 int ioeventfd__init(struct kvm *kvm);
+int ioeventfd__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt);
 int ioeventfd__exit(struct kvm *kvm);
 int ioeventfd__add_event(struct ioevent *ioevent, int flags);
 int ioeventfd__del_event(u64 addr, u64 datamatch);

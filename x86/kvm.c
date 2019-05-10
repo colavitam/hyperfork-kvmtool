@@ -171,6 +171,10 @@ int kvm__arch_pre_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 	if (ioctl(kvm->vm_fd, KVM_GET_IRQCHIP, &ctxt->irqchip) < 0)
 		die_perror("KVM_GET_IRQCHIP failed");
 
+
+	if (ioctl(kvm->vm_fd, KVM_GET_CLOCK, &ctxt->clock_data) < 0)
+		die_perror("KVM_GET_CLOCK failed");
+
 	return 0;
 }
 
@@ -220,6 +224,11 @@ void kvm__arch_post_copy(struct kvm *kvm, const char *hugetlbfs_path, u64 ram_si
 
 	if (ioctl(kvm->vm_fd, KVM_SET_IRQCHIP, &ctxt->irqchip) < 0)
 		die_perror("KVM_SET_IRQCHIP failed");
+
+	ctxt->clock_data.flags = 0;
+
+	if (ioctl(kvm->vm_fd, KVM_SET_CLOCK, &ctxt->clock_data) < 0)
+		die_perror("KVM_SET_CLOCK failed");
 }
 
 void kvm__arch_delete_ram(struct kvm *kvm)

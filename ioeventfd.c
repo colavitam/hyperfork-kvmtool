@@ -97,6 +97,54 @@ cleanup:
 }
 base_init(ioeventfd__init);
 
+int ioeventfd__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
+{
+	struct epoll_event epoll_event = {.events = EPOLLIN};
+	int r;
+
+	ioeventfd_avail = kvm__supports_extension(kvm, KVM_CAP_IOEVENTFD);
+	if (!ioeventfd_avail)
+		return 1; /* Not fatal, but let caller determine no-go. */
+
+	close(epoll_fd);
+	epoll_fd = epoll_create(IOEVENTFD_MAX_EVENTS);
+	if (epoll_fd < 0)
+		die("Cannot create new epoll_fd");
+
+	close(epoll_stop_fd);
+	epoll_stop_fd = eventfd(0, 0);
+	epoll_event.data.fd = epoll_stop_fd;
+
+	r = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, epoll_stop_fd, &epoll_event);
+	if (r < 0)
+		die("epoll_ctl failure");
+
+	struct ioevent *ioevent;
+	list_for_each_entry(ioevent, &used_ioevents, list) {
+		int fd;
+		struct epoll_event epoll_event = (struct epoll_event) {
+			.events = EPOLLIN,
+			.data.ptr = ioevent,
+		};
+
+		close(ioevent->fd);
+		fd = ioevent->fd = eventfd(0, 0);
+		if (fd < 0)
+			die("eventfd creation failure");
+
+		r = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &epoll_event);
+	}
+
+	r = ioeventfd__start();
+	if (r < 0)
+		die("ioeventfd__start failure");
+
+	r = 0;
+
+	return r;
+}
+base_post_copy(ioeventfd__post_copy);
+
 int ioeventfd__exit(struct kvm *kvm)
 {
 	u64 tmp = 1;

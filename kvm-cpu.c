@@ -322,6 +322,9 @@ int kvm_cpu__pre_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 		ctxt->fpu = calloc(kvm->nrcpus, sizeof(*ctxt->fpu));
 		ctxt->msrs = calloc(kvm->nrcpus, sizeof(*ctxt->msrs));
 		ctxt->xsave = calloc(kvm->nrcpus, sizeof(*ctxt->xsave));
+		ctxt->events = calloc(kvm->nrcpus, sizeof(*ctxt->events));
+		ctxt->lapic = calloc(kvm->nrcpus, sizeof(*ctxt->lapic));
+		ctxt->xcrs = calloc(kvm->nrcpus, sizeof(*ctxt->xcrs));
 		kvm_cpu__arch_pre_copy(kvm->cpus[i], ctxt, i);
 	}
 

@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/eventfd.h>
+#include <sys/time.h>
 #include <dirent.h>
 
 #include "kvm/kvm-ipc.h"
@@ -373,9 +374,20 @@ static void handle_fork(struct kvm *kvm, int fd, u32 type, u32 len, u8 *msg)
 		ioctl(kvm->vm_fd, KVM_KVMCLOCK_CTRL);
 		kvm__pause(kvm);
 	}
+	struct timeval tm;
+	gettimeofday(&tm, NULL);
+
 	kvm__fork(kvm);
 	kvm->vm_state = KVM_VMSTATE_RUNNING;
 	kvm__continue(kvm);
+
+	struct timeval tm2;
+	gettimeofday(&tm2, NULL);
+
+	long long mso = 1000000 * tm.tv_sec + tm.tv_usec;
+	long long msn = 1000000 * tm2.tv_sec + tm2.tv_usec;
+
+	printf("Time: %lld usec\n", msn - mso);
 }
 
 static void handle_vmstate(struct kvm *kvm, int fd, u32 type, u32 len, u8 *msg)
@@ -581,6 +593,7 @@ int kvm_ipc__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 	kvm_ipc__register_handler(KVM_IPC_DEBUG, handle_debug);
 	kvm_ipc__register_handler(KVM_IPC_PAUSE, handle_pause);
 	kvm_ipc__register_handler(KVM_IPC_RESUME, handle_pause);
+        kvm_ipc__register_handler(KVM_IPC_FORK, handle_fork);
 	kvm_ipc__register_handler(KVM_IPC_STOP, handle_stop);
 	kvm_ipc__register_handler(KVM_IPC_VMSTATE, handle_vmstate);
 	signal(SIGUSR1, handle_sigusr1);

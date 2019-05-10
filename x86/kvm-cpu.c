@@ -142,13 +142,20 @@ void kvm_cpu__arch_pre_copy(struct kvm_cpu *vcpu, struct pre_copy_context *ctxt,
 	if (ioctl(vcpu->vcpu_fd, KVM_GET_MSRS, vcpu->msrs) < 0)
 		die_perror("KVM_GET_MSRS failed");
 
-	/*
-	if (ioctl(vcpu->vcpu_fd, KVM_GET_IRQCHIP, &ctxt->irqchip[vcpu_idx]) < 0)
-		die_perror("KVM_GET_IRQCHIP failed");
-		*/
+	if (ioctl(vcpu->vcpu_fd, KVM_GET_VCPU_EVENTS, &ctxt->events[vcpu_idx]) < 0)
+		die_perror("KVM_GET_VCPU_EVENTS failed");
+
+	if (ioctl(vcpu->vcpu_fd, KVM_GET_LAPIC, &ctxt->lapic[vcpu_idx]) < 0)
+		die_perror("KVM_GET_LAPIC failed");
+
+	if (ioctl(vcpu->vcpu_fd, KVM_GET_XCRS, &ctxt->xcrs[vcpu_idx]) < 0)
+		die_perror("KVM_GET_XCRS failed");
 
 	ctxt->msrs[vcpu_idx] = calloc(1,
 			sizeof(*vcpu->msrs) + (sizeof(struct kvm_msr_entry) * vcpu->msrs->nmsrs));
+	if (ctxt->msrs[vcpu_idx] == NULL)
+		die_perror("MSR alloc failed");
+
 	ctxt->msrs[vcpu_idx]->nmsrs = vcpu->msrs->nmsrs;
 	ctxt->msrs[vcpu_idx]->pad = vcpu->msrs->pad;
 	memcpy(ctxt->msrs[vcpu_idx]->entries, vcpu->msrs->entries,
@@ -191,8 +198,10 @@ int kvm_cpu__arch_post_copy(struct kvm_cpu *vcpu, unsigned long cpu_id,
 
 	vcpu->is_running = true;
 
+	/*
 	if (ioctl(vcpu->vcpu_fd, KVM_SET_XSAVE, &ctxt->xsave[cpu_id]) < 0)
 		die_perror("KVM_SET_XSAVE failed");
+		*/
 
 	if (ioctl(vcpu->vcpu_fd, KVM_SET_REGS, &ctxt->regs[cpu_id]) < 0)
 		die_perror("KVM_SET_REGS failed");
@@ -215,6 +224,15 @@ int kvm_cpu__arch_post_copy(struct kvm_cpu *vcpu, unsigned long cpu_id,
 
 	if (ioctl(vcpu->vcpu_fd, KVM_SET_SREGS, &sregs) < 0)
 		die_perror("KVM_SET_SREGS failed");
+
+	if (ioctl(vcpu->vcpu_fd, KVM_SET_VCPU_EVENTS, &ctxt->events[cpu_id]) < 0)
+		die_perror("KVM_SET_VCPU_EVENTS failed");
+
+	if (ioctl(vcpu->vcpu_fd, KVM_SET_LAPIC, &ctxt->lapic[cpu_id]) < 0)
+		die_perror("KVM_SET_LAPIC failed");
+
+	if (ioctl(vcpu->vcpu_fd, KVM_SET_XCRS, &ctxt->xcrs[cpu_id]) < 0)
+		die_perror("KVM_SET_XCRS failed");
 
 	return 0;
 }
