@@ -168,6 +168,15 @@ int tty_parser(const struct option *opt, const char *arg, int unset)
 	return 0;
 }
 
+static int term__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
+{
+	/* TODO: generalize this */
+	term_set_tty(0);
+
+	return 0;
+}
+base_post_copy(term__post_copy);
+
 static int term_init(struct kvm *kvm)
 {
 	struct termios term;

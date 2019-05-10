@@ -154,7 +154,9 @@ int kvm_cpu__start(struct kvm_cpu *cpu)
 	signal(SIGKVMPAUSE, kvm_cpu_signal_handler);
 	signal(SIGKVMTASK, kvm_cpu_signal_handler);
 
-	kvm_cpu__reset_vcpu(cpu);
+	if (!cpu->state_initialized)
+		kvm_cpu__reset_vcpu(cpu);
+	cpu->state_initialized = 1;
 
 	if (cpu->kvm->cfg.single_step)
 		kvm_cpu__enable_singlestep(cpu);
@@ -214,8 +216,10 @@ int kvm_cpu__start(struct kvm_cpu *cpu)
 		case KVM_EXIT_INTR:
 			if (cpu->is_running)
 				break;
+			printf("Interrupt.\n");
 			goto exit_kvm;
 		case KVM_EXIT_SHUTDOWN:
+			printf("Shutdown1.\n");
 			goto exit_kvm;
 		case KVM_EXIT_SYSTEM_EVENT:
 			/*
@@ -234,6 +238,7 @@ int kvm_cpu__start(struct kvm_cpu *cpu)
 				 * Ensure that all VCPUs are torn down,
 				 * regardless of which CPU generated the event.
 				 */
+				printf("Shutdown2.\n");
 				kvm__reboot(cpu->kvm);
 				goto exit_kvm;
 			};
@@ -251,6 +256,7 @@ int kvm_cpu__start(struct kvm_cpu *cpu)
 	}
 
 exit_kvm:
+	printf("Exiting!\n");
 	return 0;
 
 panic_kvm:
@@ -311,7 +317,12 @@ int kvm_cpu__pre_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 			pr_warning("KVM VCPU found uninitialized");
 			goto fail;
 		}
-		kvm_cpu__arch_pre_copy(kvm->cpus[i], ctxt);
+		ctxt->regs = calloc(kvm->nrcpus, sizeof(*ctxt->regs));
+		ctxt->sregs = calloc(kvm->nrcpus, sizeof(*ctxt->sregs));
+		ctxt->fpu = calloc(kvm->nrcpus, sizeof(*ctxt->fpu));
+		ctxt->msrs = calloc(kvm->nrcpus, sizeof(*ctxt->msrs));
+		ctxt->xsave = calloc(kvm->nrcpus, sizeof(*ctxt->xsave));
+		kvm_cpu__arch_pre_copy(kvm->cpus[i], ctxt, i);
 	}
 
   return 0;
@@ -321,9 +332,12 @@ fail:
 }
 base_pre_copy(kvm_cpu__pre_copy);
 
+#include <assert.h>
+
 int kvm_cpu__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 {
 	int max_cpus, recommended_cpus, i;
+	int ret;
 
 	max_cpus = kvm__max_cpus(kvm);
 	recommended_cpus = kvm__recommended_cpus(kvm);
@@ -350,15 +364,18 @@ int kvm_cpu__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 	}
 
 	/* Alloc one pointer too many, so array ends up 0-terminated */
+	/*
 	kvm->cpus = calloc(kvm->nrcpus + 1, sizeof(void *));
 	if (!kvm->cpus) {
 		pr_warning("Couldn't allocate array for %d CPUs", kvm->nrcpus);
 		return -ENOMEM;
 	}
+	*/
 
 	for (i = 0; i < kvm->nrcpus; i++) {
-		kvm->cpus[i] = kvm_cpu__arch_post_copy(kvm, i, ctxt);
-		if (!kvm->cpus[i]) {
+		assert(kvm->cpus[i]->state_initialized);
+		ret = kvm_cpu__arch_post_copy(kvm->cpus[i], i, ctxt);
+		if (ret != 0) {
 			pr_warning("unable to initialize KVM VCPU");
 			goto fail_alloc;
 		}

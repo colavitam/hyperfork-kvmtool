@@ -59,10 +59,11 @@ struct kvm_mem_bank {
 
 struct pre_copy_context {
   /* VCPU internal state */
-  struct kvm_regs regs;
-  struct kvm_sregs sregs;
-  struct kvm_fpu fpu;
-  struct kvm_msrs *msrs;
+  struct kvm_regs *regs;
+  struct kvm_sregs *sregs;
+  struct kvm_fpu *fpu;
+  struct kvm_msrs **msrs;
+  struct kvm_xsave *xsave;
 };
 
 struct kvm {
