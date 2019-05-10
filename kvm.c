@@ -592,43 +592,48 @@ void kvm__fork(struct kvm *kvm)
 	if (init_list__pre_copy(kvm, &ctxt) < 0)
 		die ("Pre copy failed");
 
+	kvm_cpu__set_debug_fd(STDOUT_FILENO);
+	kvm_cpu__show_registers(kvm->cpus[0]);
+	kvm_cpu__show_code(kvm->cpus[0]);
+	kvm_cpu__show_page_tables(kvm->cpus[0]);
+
 	int pid = fork();
 	switch (pid)
 	{
-	case -1:
-		die("Failed to fork process");
-		break;
-	case 0:
-		// Child
-		sprintf(name, "guest-%u", getpid());
-		kvm->cfg.guest_name = name;
+		case -1:
+			die("Failed to fork process");
+			break;
+		case 0:
+			// Child
+			sprintf(name, "guest-%u", getpid());
+			kvm->cfg.guest_name = name;
 
-		if (init_list__post_copy(kvm, &ctxt) < 0)
-			die ("Post copy failed");
+			if (init_list__post_copy(kvm, &ctxt) < 0)
+				die ("Post copy failed");
 
-    /* Make the PGID unique from the parent such that we can
-     * re-attach the process to a new terminal window. */
-    if (setpgid(0,0)) {
-			die("Failed to set PGID of child");
-    }
+			/* Make the PGID unique from the parent such that we can
+			 * re-attach the process to a new terminal window. */
+			if (setpgid(0,0)) {
+				die("Failed to set PGID of child");
+			}
 
-    /* Unpause the child VM */
-    kvm->vm_state = KVM_VMSTATE_RUNNING;
-    kvm__continue(kvm);
+			/* Unpause the child VM */
+			kvm->vm_state = KVM_VMSTATE_RUNNING;
+			kvm__continue(kvm);
 
-    /* Start VCPU threads and take over duties of main lkvm run thread.
-     * We have already created another kvm_ipc thread, so here
-     * we just use this one to take over the role of lkvm. Basically
-     * that just means waiting on the VCPU0 thread to exit and then
-     * exiting gracefully. */
-    int ret = kvm_cmd_run_work(kvm);
-    kvm_cmd_run_exit(kvm, ret);
+			/* Start VCPU threads and take over duties of main lkvm run thread.
+			 * We have already created another kvm_ipc thread, so here
+			 * we just use this one to take over the role of lkvm. Basically
+			 * that just means waiting on the VCPU0 thread to exit and then
+			 * exiting gracefully. */
+			int ret = kvm_cmd_run_work(kvm);
+			kvm_cmd_run_exit(kvm, ret);
 
-    die("Forked VM exiting");
-		break;
-	default:
-		// Parent
-		break;
+			die("Forked VM exiting");
+			break;
+		default:
+			// Parent
+			break;
 	}
 }
 

@@ -63,6 +63,7 @@ struct pre_copy_context {
   struct kvm_sregs *sregs;
   struct kvm_fpu *fpu;
   struct kvm_msrs **msrs;
+  struct kvm_xsave *xsave;
 };
 
 struct kvm {
