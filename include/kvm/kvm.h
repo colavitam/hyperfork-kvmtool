@@ -64,6 +64,7 @@ struct pre_copy_context {
   struct kvm_fpu *fpu;
   struct kvm_msrs **msrs;
   struct kvm_xsave *xsave;
+  struct kvm_irqchip irqchip;
 };
 
 struct kvm {
@@ -97,6 +98,7 @@ const char *kvm__get_dir(void);
 
 int kvm__init(struct kvm *kvm);
 int kvm__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt);
+int kvm__pre_copy(struct kvm *kvm, struct pre_copy_context *ctxt);
 struct kvm *kvm__new(void);
 int kvm__recommended_cpus(struct kvm *kvm);
 int kvm__max_cpus(struct kvm *kvm);
@@ -148,7 +150,8 @@ void kvm__remove_socket(const char *name);
 
 void kvm__arch_set_cmdline(char *cmdline, bool video);
 void kvm__arch_init(struct kvm *kvm, const char *hugetlbfs_path, u64 ram_size);
-void kvm__arch_post_copy(struct kvm *kvm, const char *hugetlbfs_path, u64 ram_size);
+void kvm__arch_post_copy(struct kvm *kvm, const char *hugetlbfs_path, u64 ram_size, struct pre_copy_context *ctxt);
+int kvm__arch_pre_copy(struct kvm *kvm, struct pre_copy_context *ctxt);
 void kvm__arch_delete_ram(struct kvm *kvm);
 int kvm__arch_setup_firmware(struct kvm *kvm);
 int kvm__arch_free_firmware(struct kvm *kvm);

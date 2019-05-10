@@ -166,7 +166,15 @@ void kvm__arch_init(struct kvm *kvm, const char *hugetlbfs_path, u64 ram_size)
 		die_perror("KVM_CREATE_IRQCHIP ioctl");
 }
 
-void kvm__arch_post_copy(struct kvm *kvm, const char *hugetlbfs_path, u64 ram_size)
+int kvm__arch_pre_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
+{
+	if (ioctl(kvm->vm_fd, KVM_GET_IRQCHIP, &ctxt->irqchip) < 0)
+		die_perror("KVM_GET_IRQCHIP failed");
+
+	return 0;
+}
+
+void kvm__arch_post_copy(struct kvm *kvm, const char *hugetlbfs_path, u64 ram_size, struct pre_copy_context *ctxt)
 {
 	struct kvm_pit_config pit_config = { .flags = 0, };
 	int ret;
@@ -209,6 +217,9 @@ void kvm__arch_post_copy(struct kvm *kvm, const char *hugetlbfs_path, u64 ram_si
 	ret = ioctl(kvm->vm_fd, KVM_CREATE_IRQCHIP);
 	if (ret < 0)
 		die_perror("KVM_CREATE_IRQCHIP ioctl");
+
+	if (ioctl(kvm->vm_fd, KVM_SET_IRQCHIP, &ctxt->irqchip) < 0)
+		die_perror("KVM_SET_IRQCHIP failed");
 }
 
 void kvm__arch_delete_ram(struct kvm *kvm)

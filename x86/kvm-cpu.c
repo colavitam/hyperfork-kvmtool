@@ -142,6 +142,11 @@ void kvm_cpu__arch_pre_copy(struct kvm_cpu *vcpu, struct pre_copy_context *ctxt,
 	if (ioctl(vcpu->vcpu_fd, KVM_GET_MSRS, vcpu->msrs) < 0)
 		die_perror("KVM_GET_MSRS failed");
 
+	/*
+	if (ioctl(vcpu->vcpu_fd, KVM_GET_IRQCHIP, &ctxt->irqchip[vcpu_idx]) < 0)
+		die_perror("KVM_GET_IRQCHIP failed");
+		*/
+
 	ctxt->msrs[vcpu_idx] = calloc(1,
 			sizeof(*vcpu->msrs) + (sizeof(struct kvm_msr_entry) * vcpu->msrs->nmsrs));
 	ctxt->msrs[vcpu_idx]->nmsrs = vcpu->msrs->nmsrs;
@@ -200,9 +205,6 @@ int kvm_cpu__arch_post_copy(struct kvm_cpu *vcpu, unsigned long cpu_id,
 
 	struct kvm_sregs sregs;
 
-	if (ioctl(vcpu->vcpu_fd, KVM_GET_SREGS, &sregs) < 0)
-		die_perror("KVM_SET_SREGS failed");
-
 	sregs = ctxt->sregs[cpu_id];
 	sregs.cs.l = 0;
 
@@ -213,7 +215,6 @@ int kvm_cpu__arch_post_copy(struct kvm_cpu *vcpu, unsigned long cpu_id,
 
 	if (ioctl(vcpu->vcpu_fd, KVM_SET_SREGS, &sregs) < 0)
 		die_perror("KVM_SET_SREGS failed");
-
 
 	return 0;
 }

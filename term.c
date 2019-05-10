@@ -173,6 +173,12 @@ static int term__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 	/* TODO: generalize this */
 	term_set_tty(0);
 
+	/* Use our own blocking thread to read stdin, don't require a tick */
+	if(pthread_create(&term_poll_thread, NULL, term_poll_thread_loop,kvm))
+		die("Unable to create console input poll thread\n");
+
+	signal(SIGTERM, term_sig_cleanup);
+
 	return 0;
 }
 base_post_copy(term__post_copy);

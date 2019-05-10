@@ -424,6 +424,12 @@ err:
 }
 core_init(kvm__init);
 
+int kvm__pre_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
+{
+	return kvm__arch_pre_copy(kvm, ctxt);
+}
+core_pre_copy(kvm__pre_copy);
+
 int kvm__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 {
 	int ret;
@@ -456,7 +462,7 @@ int kvm__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 		return ret;
 	}
 
-	kvm__arch_post_copy(kvm, kvm->cfg.hugetlbfs_path, kvm->cfg.ram_size);
+	kvm__arch_post_copy(kvm, kvm->cfg.hugetlbfs_path, kvm->cfg.ram_size, ctxt);
 
 	list_for_each_entry_safe(bank, tmp, &kvm->mem_banks, list) {
 		list_del(&bank->list);
