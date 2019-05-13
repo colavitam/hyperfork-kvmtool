@@ -16,11 +16,11 @@ struct copy_item {
 	int (*copy)(struct kvm *, struct pre_copy_context *ctxt);
 };
 
-
 int init_list__init(struct kvm *kvm);
 int init_list__exit(struct kvm *kvm);
 int init_list__pre_copy(struct kvm *kvm, struct pre_copy_context *ctxt);
 int init_list__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt);
+int init_list__post_copy_parent(struct kvm *kvm, struct pre_copy_context *ctxt);
 
 int init_list_add(struct init_item *t, int (*init)(struct kvm *),
 			int priority, const char *name);
@@ -29,6 +29,8 @@ int exit_list_add(struct init_item *t, int (*init)(struct kvm *),
 int pre_copy_list_add(struct copy_item *t, int (*copy)(struct kvm *, struct pre_copy_context *ctxt),
 			int priority, const char *name);
 int post_copy_list_add(struct copy_item *t, int (*copy)(struct kvm *, struct pre_copy_context *ctxt),
+			int priority, const char *name);
+int post_copy_parent_list_add(struct copy_item *t, int (*copy)(struct kvm *, struct pre_copy_context *ctxt),
 			int priority, const char *name);
 
 #define __init_list_add(cb, l)						\
@@ -63,6 +65,15 @@ static void __attribute__ ((constructor)) __init__##cb(void)		\
 	post_copy_list_add(&t, cb, l, name);					\
 }
 
+#define __post_copy_parent_list_add(cb, l)						\
+static void __attribute__ ((constructor)) __init__##cb(void)		\
+{									\
+	static char name[] = #cb;					\
+	static struct copy_item t;					\
+	post_copy_parent_list_add(&t, cb, l, name);					\
+}
+
+
 #define core_init(cb) __init_list_add(cb, 0)
 #define base_init(cb) __init_list_add(cb, 2)
 #define dev_base_init(cb)  __init_list_add(cb, 4)
@@ -94,4 +105,12 @@ static void __attribute__ ((constructor)) __init__##cb(void)		\
 #define virtio_dev_post_copy(cb) __post_copy_list_add(cb, 6)
 #define firmware_post_copy(cb) __post_copy_list_add(cb, 7)
 #define late_post_copy(cb) __post_copy_list_add(cb, 9)
+
+#define core_post_copy_parent(cb) __post_copy_parent_list_add(cb, 0)
+#define base_post_copy_parent(cb) __post_copy_parent_list_add(cb, 2)
+#define dev_base_post_copy_parent(cb) __post_copy_parent_list_add(cb, 4)
+#define dev_post_copy_parent(cb) __post_copy_parent_list_add(cb, 5)
+#define virtio_dev_post_copy_parent(cb) __post_copy_parent_list_add(cb, 6)
+#define firmware_post_copy_parent(cb) __post_copy_parent_list_add(cb, 7)
+#define late_post_copy_parent(cb) __post_copy_parent_list_add(cb, 9)
 #endif

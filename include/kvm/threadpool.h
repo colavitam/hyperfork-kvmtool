@@ -6,6 +6,7 @@
 #include <linux/list.h>
 
 struct kvm;
+struct pre_copy_context;
 
 typedef void (*kvm_thread_callback_fn_t)(struct kvm *kvm, void *data);
 
@@ -32,6 +33,9 @@ static inline void thread_pool__init_job(struct thread_pool__job *job, struct kv
 }
 
 int thread_pool__init(struct kvm *kvm);
+int thread_pool__pre_copy(struct kvm *kvm, struct pre_copy_context *ctxt);
+int thread_pool__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt);
+int thread_pool__post_copy_parent(struct kvm *kvm, struct pre_copy_context *ctxt);
 int thread_pool__exit(struct kvm *kvm);
 
 void thread_pool__do_job(struct thread_pool__job *job);

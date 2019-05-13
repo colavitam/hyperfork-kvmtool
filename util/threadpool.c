@@ -157,6 +157,43 @@ int thread_pool__exit(struct kvm *kvm)
 }
 late_exit(thread_pool__exit);
 
+int thread_pool__pre_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
+{
+  // TODO: check deadlock
+  // TODO: wait for job completion
+  mutex_lock(&job_mutex);
+  mutex_lock(&thread_mutex);
+
+  return 0;
+}
+late_pre_copy(thread_pool__pre_copy);
+
+int thread_pool__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
+{
+	unsigned long i;
+	unsigned int thread_count = sysconf(_SC_NPROCESSORS_ONLN);
+
+  mutex_unlock(&job_mutex);
+  mutex_unlock(&thread_mutex);
+  threadcount = 0;
+
+	for (i = 0; i < thread_count; i++)
+		if (thread_pool__addthread() < 0)
+			return i;
+
+	return 0;
+}
+late_post_copy(thread_pool__post_copy);
+
+int thread_pool__post_copy_parent(struct kvm *kvm, struct pre_copy_context *ctxt)
+{
+  mutex_unlock(&thread_mutex);
+  mutex_unlock(&job_mutex);
+
+  return 0;
+}
+late_post_copy_parent(thread_pool__post_copy_parent);
+
 void thread_pool__do_job(struct thread_pool__job *job)
 {
 	struct thread_pool__job *jobinfo = job;

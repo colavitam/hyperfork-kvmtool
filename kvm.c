@@ -639,11 +639,12 @@ void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
 
 		printf("Time: %lld usec\n", msn - mso);
 		int ret = kvm_cmd_run_work(kvm);
-		printf("HERE!\n");
 		kvm_cmd_run_exit(kvm, ret);
-		printf("HERE2!\n");
 
 		exit(0);
+	} else {
+		if (init_list__post_copy_parent(kvm, &ctxt) < 0)
+			die ("Post copy parent failed");
 	}
 }
 
