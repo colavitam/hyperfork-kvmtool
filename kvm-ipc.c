@@ -372,10 +372,13 @@ static void handle_fork(struct kvm *kvm, int fd, u32 type, u32 len, u8 *msg)
 {
 	struct fork_cmd_params *params = (struct fork_cmd_params *)msg;
 	bool detach_term = params->detach_term;
-	char *new_name = malloc(params->new_name_len + 1);
+	char *new_name = NULL;
 
-	memcpy(new_name, params->new_name, params->new_name_len);
-	new_name[params->new_name_len] = '\0';
+	if (params->new_name_len > 0) {
+		new_name = malloc(params->new_name_len + 1);
+		memcpy(new_name, params->new_name, params->new_name_len);
+		new_name[params->new_name_len] = '\0';
+	}
 
 	if (!is_paused) {
 		kvm->vm_state = KVM_VMSTATE_PAUSED;
@@ -544,7 +547,7 @@ int kvm_ipc__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 	struct epoll_event ev = {0};
 
 	if (ctxt->new_name)
-		kvm->cfg.guest_name = ctxt->new_name; // TODO: alloc check
+		kvm->cfg.guest_name = ctxt->new_name;
 
 	sock = kvm__create_socket(kvm);
 

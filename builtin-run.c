@@ -734,16 +734,26 @@ static void parse_fork_options(int argc, const char **argv)
 	}
 }
 
-static int do_fork(int sock, bool detach_term)
+static int do_fork(int sock)
 {
 	int r;
 	int vmstate;
-	u32 name_blen = strlen(dst_name);
-	struct fork_cmd_params *cmd = calloc(1, sizeof(*cmd) + name_blen);
+	u32 name_blen;
+	struct fork_cmd_params *cmd;
+
+	if (dst_name != NULL)
+		name_blen = strlen(dst_name);
+	else
+		name_blen = 0;
+
+	cmd = calloc(1, sizeof(*cmd) + name_blen);
+	if (!cmd)
+		die("Failed allocation");
 
 	cmd->detach_term = detach_term;
 	cmd->new_name_len = name_blen;
-	memcpy(&cmd->new_name, dst_name, name_blen);
+	if (name_blen > 0)
+		memcpy(&cmd->new_name, dst_name, name_blen);
 
 
 	vmstate = get_vmstate(sock);
@@ -764,7 +774,7 @@ int kvm_cmd_fork(int argc, const char **argv, const char *prefix)
 
 	parse_fork_options(argc, argv);
 
-	if (!src_name || !dst_name)
+	if (!src_name)
 		kvm_fork_help();
 
 	src = kvm__get_sock_by_instance(src_name);
@@ -772,7 +782,7 @@ int kvm_cmd_fork(int argc, const char **argv, const char *prefix)
 	if (src <= 0)
 		die("Failed locating source instance");
 
-	r = do_fork(src, detach_term);
+	r = do_fork(src);
 
 	close(src);
 
