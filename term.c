@@ -159,6 +159,28 @@ static void term_set_tty(int term)
 	term_fds[term][TERM_FD_IN] = term_fds[term][TERM_FD_OUT] = master;
 }
 
+static void term_detach(int term)
+{
+	term_fds[term][TERM_FD_OUT] = open("/dev/null", O_WRONLY);
+	int pipes[2];
+	int err = pipe(pipes);
+	if (err < 0)
+		die_perror("Pipe failed");
+	term_fds[term][TERM_FD_IN] = pipes[0];
+}
+
+/*
+static void term_set_file(int term, char *file)
+{
+	term_fds[term][TERM_FD_OUT] = open(file, O_WRONLY | O_CREAT);
+	int pipes[2];
+	int err = pipe(pipes);
+	if (err < 0)
+		die_perror("Pipe failed");
+	term_fds[term][TERM_FD_IN] = pipes[0];
+}
+*/
+
 int tty_parser(const struct option *opt, const char *arg, int unset)
 {
 	int tty = atoi(arg);
@@ -171,7 +193,10 @@ int tty_parser(const struct option *opt, const char *arg, int unset)
 static int term__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 {
 	/* TODO: generalize this */
-	term_set_tty(0);
+	if (ctxt->detach_term)
+		term_detach(0);
+	else
+		term_set_tty(0);
 
 	/* Use our own blocking thread to read stdin, don't require a tick */
 	if(pthread_create(&term_poll_thread, NULL, term_poll_thread_loop,kvm))

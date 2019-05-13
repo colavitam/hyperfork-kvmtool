@@ -216,10 +216,8 @@ int kvm_cpu__start(struct kvm_cpu *cpu)
 		case KVM_EXIT_INTR:
 			if (cpu->is_running)
 				break;
-			printf("Interrupt.\n");
 			goto exit_kvm;
 		case KVM_EXIT_SHUTDOWN:
-			printf("Shutdown1.\n");
 			goto exit_kvm;
 		case KVM_EXIT_SYSTEM_EVENT:
 			/*
@@ -238,7 +236,6 @@ int kvm_cpu__start(struct kvm_cpu *cpu)
 				 * Ensure that all VCPUs are torn down,
 				 * regardless of which CPU generated the event.
 				 */
-				printf("Shutdown2.\n");
 				kvm__reboot(cpu->kvm);
 				goto exit_kvm;
 			};
@@ -256,7 +253,6 @@ int kvm_cpu__start(struct kvm_cpu *cpu)
 	}
 
 exit_kvm:
-	printf("Exiting!\n");
 	return 0;
 
 panic_kvm:

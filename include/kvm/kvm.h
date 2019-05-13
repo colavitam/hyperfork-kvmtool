@@ -58,6 +58,8 @@ struct kvm_mem_bank {
 };
 
 struct pre_copy_context {
+  u8 detach_term;
+  char *new_name;
   /* VCPU internal state */
   struct kvm_regs *regs;
   struct kvm_sregs *sregs;
@@ -146,7 +148,7 @@ bool kvm__deregister_mmio(struct kvm *kvm, u64 phys_addr);
 void kvm__reboot(struct kvm *kvm);
 void kvm__pause(struct kvm *kvm);
 void kvm__continue(struct kvm *kvm);
-void kvm__fork(struct kvm *kvm);
+void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name);
 void kvm__notify_paused(void);
 int kvm__get_sock_by_instance(const char *name);
 int kvm__enumerate_instances(int (*callback)(const char *name, int pid));

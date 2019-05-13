@@ -704,16 +704,18 @@ int kvm_cmd_run(int argc, const char **argv, const char *prefix)
 
 static const char *src_name;
 static const char *dst_name;
+static bool detach_term;
 
 static const char * const fork_usage[] = {
-	"lkvm fork [-s src] [-d dst]",
+	"lkvm fork [-n src] [-d dst] [--detach]",
 	NULL
 };
 
 static const struct option fork_options[] = {
 	OPT_GROUP("General options:"),
-	OPT_STRING('s', "src", &src_name, "src_name", "Source virtual machine"),
+	OPT_STRING('n', "src", &src_name, "src_name", "Source virtual machine"),
 	OPT_STRING('d', "dst", &dst_name, "dst_name", "Destination virtual machine"),
+	OPT_BOOLEAN('\0', "detach", &detach_term, "Detach the serial terminal to prevent blocking"),
 	OPT_END()
 };
 
@@ -726,26 +728,31 @@ static void parse_fork_options(int argc, const char **argv)
 {
 	while (argc != 0) {
 		argc = parse_options(argc, argv, fork_options, fork_usage,
-												 PARSE_OPT_STOP_AT_NON_OPTION);
+				PARSE_OPT_STOP_AT_NON_OPTION);
 		if (argc != 0)
 			kvm_fork_help();
 	}
 }
 
-static int do_fork(const char *name, int sock)
+static int do_fork(int sock, bool detach_term)
 {
 	int r;
 	int vmstate;
+	u32 name_blen = strlen(dst_name);
+	struct fork_cmd_params *cmd = calloc(1, sizeof(*cmd) + name_blen);
+
+	cmd->detach_term = detach_term;
+	cmd->new_name_len = name_blen;
+	memcpy(&cmd->new_name, dst_name, name_blen);
+
 
 	vmstate = get_vmstate(sock);
 	if (vmstate < 0)
 		return vmstate;
 
-	r = kvm_ipc__send(sock, KVM_IPC_FORK);
+	r = kvm_ipc__send_msg(sock, KVM_IPC_FORK, sizeof(cmd) + name_blen, (u8 *)cmd);
 	if (r)
 		return r;
-
-	printf("Guest %s forked\n", name);
 
 	return 0;
 }
@@ -765,7 +772,7 @@ int kvm_cmd_fork(int argc, const char **argv, const char *prefix)
 	if (src <= 0)
 		die("Failed locating source instance");
 
-	r = do_fork(src_name, src);
+	r = do_fork(src, detach_term);
 
 	close(src);
 

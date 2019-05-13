@@ -3,6 +3,12 @@
 
 #include <kvm/util.h>
 
+struct fork_cmd_params {
+	bool detach_term;
+	u32 new_name_len;
+	char new_name[];
+};
+
 int kvm_cmd_run(int argc, const char **argv, const char *prefix);
 void kvm_run_help(void) NORETURN;
 

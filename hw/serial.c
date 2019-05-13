@@ -65,6 +65,7 @@ static struct serial8250_device devices[] = {
 		SERIAL_REGS_SETTING
 	},
 	/* ttyS1 */
+	/*
 	[1]	= {
 		.mutex			= MUTEX_INITIALIZER,
 
@@ -74,7 +75,9 @@ static struct serial8250_device devices[] = {
 
 		SERIAL_REGS_SETTING
 	},
+	*/
 	/* ttyS2 */
+	/*
 	[2]	= {
 		.mutex			= MUTEX_INITIALIZER,
 
@@ -84,7 +87,9 @@ static struct serial8250_device devices[] = {
 
 		SERIAL_REGS_SETTING
 	},
+	*/
 	/* ttyS3 */
+	/*
 	[3]	= {
 		.mutex			= MUTEX_INITIALIZER,
 
@@ -94,6 +99,7 @@ static struct serial8250_device devices[] = {
 
 		SERIAL_REGS_SETTING
 	},
+	*/
 };
 
 static void serial8250_flush_tx(struct kvm *kvm, struct serial8250_device *dev)

@@ -12,6 +12,7 @@
 #include <linux/list.h>
 #include <linux/err.h>
 
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/un.h>
@@ -591,57 +592,58 @@ void kvm__pause(struct kvm *kvm)
 	close(pause_event);
 }
 
-void kvm__fork(struct kvm *kvm)
+void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
 {
+	struct timeval tm;
+	gettimeofday(&tm, NULL);
+
 	static char name[20];
 	struct pre_copy_context ctxt;
+	ctxt.detach_term = detach_term;
+	ctxt.new_name = new_name;
 	if (init_list__pre_copy(kvm, &ctxt) < 0)
 		die ("Pre copy failed");
 
-	/*
-	kvm_cpu__set_debug_fd(STDOUT_FILENO);
-	kvm_cpu__show_registers(kvm->cpus[0]);
-	kvm_cpu__show_code(kvm->cpus[0]);
-	kvm_cpu__show_page_tables(kvm->cpus[0]);
-	*/
-
 	int pid = fork();
-	switch (pid)
-	{
-		case -1:
-			die("Failed to fork process");
-			break;
-		case 0:
-			// Child
-			sprintf(name, "guest-%u", getpid());
-			kvm->cfg.guest_name = name;
+	if (pid < 0) {
+		die("Failed to fork process");
+	} else if (pid == 0) {
+		// Child
+		sprintf(name, "guest-%u", getpid());
+		kvm->cfg.guest_name = name;
 
-			if (init_list__post_copy(kvm, &ctxt) < 0)
-				die ("Post copy failed");
+		if (init_list__post_copy(kvm, &ctxt) < 0)
+			die ("Post copy failed");
 
-			/* Make the PGID unique from the parent such that we can
-			 * re-attach the process to a new terminal window. */
-			if (setpgid(0,0)) {
-				die("Failed to set PGID of child");
-			}
+		/* Make the PGID unique from the parent such that we can
+		 * re-attach the process to a new terminal window. */
+		if (setpgid(0,0)) {
+			die("Failed to set PGID of child");
+		}
 
-			/* Unpause the child VM */
-			kvm->vm_state = KVM_VMSTATE_RUNNING;
-			kvm__continue(kvm);
+		/* Unpause the child VM */
+		kvm->vm_state = KVM_VMSTATE_RUNNING;
+		kvm__continue(kvm);
 
-			/* Start VCPU threads and take over duties of main lkvm run thread.
-			 * We have already created another kvm_ipc thread, so here
-			 * we just use this one to take over the role of lkvm. Basically
-			 * that just means waiting on the VCPU0 thread to exit and then
-			 * exiting gracefully. */
-			int ret = kvm_cmd_run_work(kvm);
-			kvm_cmd_run_exit(kvm, ret);
+		/* Start VCPU threads and take over duties of main lkvm run thread.
+		 * We have already created another kvm_ipc thread, so here
+		 * we just use this one to take over the role of lkvm. Basically
+		 * that just means waiting on the VCPU0 thread to exit and then
+		 * exiting gracefully. */
 
-			die("Forked VM exiting");
-			break;
-		default:
-			// Parent
-			break;
+		struct timeval tm2;
+		gettimeofday(&tm2, NULL);
+
+		long long mso = 1000000 * tm.tv_sec + tm.tv_usec;
+		long long msn = 1000000 * tm2.tv_sec + tm2.tv_usec;
+
+		printf("Time: %lld usec\n", msn - mso);
+		int ret = kvm_cmd_run_work(kvm);
+		printf("HERE!\n");
+		kvm_cmd_run_exit(kvm, ret);
+		printf("HERE2!\n");
+
+		exit(0);
 	}
 }
 

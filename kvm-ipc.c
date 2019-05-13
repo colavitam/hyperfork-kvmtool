@@ -12,6 +12,7 @@
 #include "kvm/util.h"
 #include "kvm/kvm.h"
 #include "kvm/builtin-debug.h"
+#include "kvm/builtin-run.h"
 #include "kvm/strbuf.h"
 #include "kvm/kvm-cpu.h"
 #include "kvm/8250-serial.h"
@@ -369,25 +370,22 @@ static void handle_pause(struct kvm *kvm, int fd, u32 type, u32 len, u8 *msg)
 
 static void handle_fork(struct kvm *kvm, int fd, u32 type, u32 len, u8 *msg)
 {
+	struct fork_cmd_params *params = (struct fork_cmd_params *)msg;
+	bool detach_term = params->detach_term;
+	char *new_name = malloc(params->new_name_len + 1);
+
+	memcpy(new_name, params->new_name, params->new_name_len);
+	new_name[params->new_name_len] = '\0';
+
 	if (!is_paused) {
 		kvm->vm_state = KVM_VMSTATE_PAUSED;
 		ioctl(kvm->vm_fd, KVM_KVMCLOCK_CTRL);
 		kvm__pause(kvm);
 	}
-	struct timeval tm;
-	gettimeofday(&tm, NULL);
 
-	kvm__fork(kvm);
+	kvm__fork(kvm, detach_term, new_name);
 	kvm->vm_state = KVM_VMSTATE_RUNNING;
 	kvm__continue(kvm);
-
-	struct timeval tm2;
-	gettimeofday(&tm2, NULL);
-
-	long long mso = 1000000 * tm.tv_sec + tm.tv_usec;
-	long long msn = 1000000 * tm2.tv_sec + tm2.tv_usec;
-
-	printf("Time: %lld usec\n", msn - mso);
 }
 
 static void handle_vmstate(struct kvm *kvm, int fd, u32 type, u32 len, u8 *msg)
@@ -545,9 +543,12 @@ int kvm_ipc__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 	int sock;
 	struct epoll_event ev = {0};
 
+	if (ctxt->new_name)
+		kvm->cfg.guest_name = ctxt->new_name; // TODO: alloc check
+
 	sock = kvm__create_socket(kvm);
 
-  close(stop_fd);
+	close(stop_fd);
 	close(server_fd);
 	close(epoll_fd);
 
