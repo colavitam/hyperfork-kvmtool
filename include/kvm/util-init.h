@@ -42,7 +42,7 @@ static void __attribute__ ((constructor)) __init__##cb(void)		\
 }
 
 #define __exit_list_add(cb, l)						\
-static void __attribute__ ((constructor)) __init__##cb(void)		\
+static void __attribute__ ((constructor)) __exit__##cb(void)		\
 {									\
 	static char name[] = #cb;					\
 	static struct init_item t;					\
@@ -50,7 +50,7 @@ static void __attribute__ ((constructor)) __init__##cb(void)		\
 }
 
 #define __pre_copy_list_add(cb, l)						\
-static void __attribute__ ((constructor)) __init__##cb(void)		\
+static void __attribute__ ((constructor)) __pre_copy__##cb(void)		\
 {									\
 	static char name[] = #cb;					\
 	static struct copy_item t;					\
@@ -58,7 +58,7 @@ static void __attribute__ ((constructor)) __init__##cb(void)		\
 }
 
 #define __post_copy_list_add(cb, l)						\
-static void __attribute__ ((constructor)) __init__##cb(void)		\
+static void __attribute__ ((constructor)) __post_copy__##cb(void)		\
 {									\
 	static char name[] = #cb;					\
 	static struct copy_item t;					\
@@ -66,7 +66,7 @@ static void __attribute__ ((constructor)) __init__##cb(void)		\
 }
 
 #define __post_copy_parent_list_add(cb, l)						\
-static void __attribute__ ((constructor)) __init__##cb(void)		\
+static void __attribute__ ((constructor)) __post_copy_parent__##cb(void)		\
 {									\
 	static char name[] = #cb;					\
 	static struct copy_item t;					\

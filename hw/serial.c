@@ -466,3 +466,32 @@ int serial8250__exit(struct kvm *kvm)
 	return 0;
 }
 dev_exit(serial8250__exit);
+
+int serial8250__pre_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(devices); i++) {
+		struct serial8250_device *dev = &devices[i];
+
+		mutex_lock(&dev->mutex);
+	}
+
+	return 0;
+}
+dev_pre_copy(serial8250__pre_copy);
+
+int serial8250__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(devices); i++) {
+		struct serial8250_device *dev = &devices[i];
+
+		mutex_unlock(&dev->mutex);
+	}
+
+	return 0;
+}
+dev_post_copy(serial8250__post_copy);
+dev_post_copy_parent(serial8250__post_copy);
