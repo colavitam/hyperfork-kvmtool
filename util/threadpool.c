@@ -124,7 +124,7 @@ static int thread_pool__addthread(void)
 int thread_pool__init(struct kvm *kvm)
 {
 	unsigned long i;
-	unsigned int thread_count = sysconf(_SC_NPROCESSORS_ONLN);
+	unsigned int thread_count = 1;
 
 	running = true;
 
@@ -171,7 +171,7 @@ late_pre_copy(thread_pool__pre_copy);
 int thread_pool__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 {
 	unsigned long i;
-	unsigned int thread_count = sysconf(_SC_NPROCESSORS_ONLN);
+	unsigned int thread_count = 1;
 
   /* TODO: this is not quite right, but it fixes the deadlock. See internal mutex in pthread_cond_t */
   pthread_cond_init(&job_cond, NULL);

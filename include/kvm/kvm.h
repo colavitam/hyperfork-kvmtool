@@ -71,6 +71,7 @@ struct pre_copy_context {
   struct kvm_xcrs *xcrs;
   struct kvm_irqchip irqchip[3];
   struct kvm_clock_data clock_data;
+  struct kvm_pit_state2 pit2;
 };
 
 struct kvm {

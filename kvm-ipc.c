@@ -66,10 +66,10 @@ int kvm_fork_self(struct kvm *kvm, bool detach_term, char *new_name)
 	if (r < 0)
 		die_perror("Self fork failed");
 
-	mutex_lock(&mutex);
 	fork_done = false;
 	r = kvm_ipc__send_msg(s, KVM_IPC_FORK, sizeof(*cmd) + name_len, (u8 *) cmd);
 	close(s);
+	mutex_lock(&mutex);
 	while (!fork_done)
 		pthread_cond_wait(&cond, &mutex.mutex);
 	mutex_unlock(&mutex);
@@ -77,8 +77,17 @@ int kvm_fork_self(struct kvm *kvm, bool detach_term, char *new_name)
 	return r;
 }
 
+static int fork_pre_fork(struct kvm *kvm, struct pre_copy_context *ctxt)
+{
+	mutex_lock(&mutex);
+
+	return 0;
+}
+late_pre_copy(fork_pre_fork);
+
 static int fork_complete(struct kvm *kvm, struct pre_copy_context *ctxt)
 {
+	mutex_unlock(&mutex);
 	pthread_cond_init(&cond, NULL);
 
 	return 0;
@@ -87,7 +96,6 @@ late_post_copy(fork_complete);
 
 static int fork_complete_parent(struct kvm *kvm, struct pre_copy_context *ctxt)
 {
-	mutex_lock(&mutex);
 	fork_done = true;
 	pthread_cond_signal(&cond);
 	mutex_unlock(&mutex);

@@ -180,6 +180,8 @@ int kvm__arch_pre_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 	if (ioctl(kvm->vm_fd, KVM_GET_IRQCHIP, &ctxt->irqchip[2]) < 0)
 		die_perror("KVM_GET_IRQCHIP failed");
 
+	if (ioctl(kvm->vm_fd, KVM_GET_IRQCHIP, &ctxt->irqchip[2]) < 0)
+		die_perror("KVM_GET_IRQCHIP IOAPIC failed");
 
 	if (ioctl(kvm->vm_fd, KVM_GET_CLOCK, &ctxt->clock_data) < 0)
 		die_perror("KVM_GET_CLOCK failed");
@@ -231,15 +233,17 @@ void kvm__arch_post_copy(struct kvm *kvm, const char *hugetlbfs_path, u64 ram_si
 	if (ret < 0)
 		die_perror("KVM_CREATE_IRQCHIP ioctl");
 
-	if (ioctl(kvm->vm_fd, KVM_GET_IRQCHIP, &ctxt->irqchip[0]) < 0)
-		die_perror("KVM_GET_IRQCHIP MASTER failed");
+	if (ioctl(kvm->vm_fd, KVM_SET_IRQCHIP, &ctxt->irqchip[0]) < 0)
+		die_perror("KVM_SET_IRQCHIP MASTER failed");
 
-	if (ioctl(kvm->vm_fd, KVM_GET_IRQCHIP, &ctxt->irqchip[1]) < 0)
-		die_perror("KVM_GET_IRQCHIP SLAVE failed");
+	if (ioctl(kvm->vm_fd, KVM_SET_IRQCHIP, &ctxt->irqchip[1]) < 0)
+		die_perror("KVM_SET_IRQCHIP SLAVE failed");
 
-	if (ioctl(kvm->vm_fd, KVM_GET_IRQCHIP, &ctxt->irqchip[2]) < 0)
-		die_perror("KVM_GET_IRQCHIP IOAPIC failed");
+	if (ioctl(kvm->vm_fd, KVM_SET_IRQCHIP, &ctxt->irqchip[2]) < 0)
+		die_perror("KVM_SET_IRQCHIP IOAPIC failed");
 
+	if (ioctl(kvm->vm_fd, KVM_SET_IRQCHIP, &ctxt->irqchip[2]) < 0)
+		die_perror("KVM_SET_IRQCHIP IOAPIC failed");
 
 	ctxt->clock_data.flags = 0;
 
