@@ -69,7 +69,7 @@ struct pre_copy_context {
   struct kvm_vcpu_events *events;
   struct kvm_lapic_state *lapic;
   struct kvm_xcrs *xcrs;
-  struct kvm_irqchip irqchip;
+  struct kvm_irqchip irqchip[3];
   struct kvm_clock_data clock_data;
 };
 

@@ -38,6 +38,8 @@
 
 #include <linux/types.h>
 #include <linux/err.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #include <sys/utsname.h>
 #include <sys/types.h>
@@ -788,3 +790,60 @@ int kvm_cmd_fork(int argc, const char **argv, const char *prefix)
 
 	return r;
 }
+
+static bool comm_in(struct ioport *ioport, struct kvm_cpu *vcpu, u16 port, void *data, int size)
+{
+	ioport__write8(data, 0x8b);
+
+	return true;
+}
+
+#define COMM_TRIGGER_FORK 0x10
+#define COMM_DONE 0x20
+
+static bool comm_out(struct ioport *ioport, struct kvm_cpu *vcpu, u16 port,
+		void *data, int size)
+{
+	int r;
+
+	u8 val = ioport__read8(data);
+	switch (val) {
+		case COMM_TRIGGER_FORK:
+			r = kvm_fork_self(vcpu->kvm, true, NULL);
+			if (r != 0)
+				die_perror("Fork failed");
+
+			break;
+		default:
+		case COMM_DONE: {
+			struct rusage usage;
+			getrusage(RUSAGE_SELF, &usage);
+
+			printf("U: %lld, S: %lld\n",
+					1000000ULL * usage.ru_utime.tv_sec + usage.ru_utime.tv_usec,
+					1000000ULL * usage.ru_stime.tv_sec + usage.ru_stime.tv_usec);
+
+			kvm__reboot(vcpu->kvm);
+
+			break;
+		}
+	}
+
+	return true;
+}
+
+static struct ioport_operations comm_ops = {
+	.io_in			= comm_in,
+	.io_out			= comm_out,
+	.generate_fdt_node	= NULL
+};
+
+static int comm_device__init(struct kvm *kvm)
+{
+	int r;
+	r = ioport__register(kvm, 0x1234, &comm_ops, 1, NULL);
+
+	return r;
+}
+dev_init(comm_device__init);
+

@@ -436,6 +436,7 @@ int kvm__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 	int ret;
 	struct kvm_mem_bank *bank, *tmp;
 
+	close(kvm->sys_fd);
 	close(kvm->vm_fd);
 
 	kvm->sys_fd = open(kvm->cfg.dev, O_RDWR);
@@ -601,6 +602,7 @@ void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
 	struct pre_copy_context ctxt;
 	ctxt.detach_term = detach_term;
 	ctxt.new_name = new_name;
+
 	if (init_list__pre_copy(kvm, &ctxt) < 0)
 		die ("Pre copy failed");
 

@@ -5,6 +5,7 @@
 #include <sys/eventfd.h>
 #include <sys/time.h>
 #include <dirent.h>
+#include <pthread.h>
 
 #include "kvm/kvm-ipc.h"
 #include "kvm/rwsem.h"
@@ -32,10 +33,71 @@ static void (*msgs[KVM_IPC_MAX_MSGS])(struct kvm *kvm, int fd, u32 type, u32 len
 static DECLARE_RWSEM(msgs_rwlock);
 static int epoll_fd, server_fd, stop_fd;
 static pthread_t thread;
+static char full_name[PATH_MAX];
+
+static struct mutex mutex = MUTEX_INITIALIZER;
+static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+static bool fork_done = false;
+
+int kvm_fork_self(struct kvm *kvm, bool detach_term, char *new_name)
+{
+	struct fork_cmd_params *cmd;
+	u32 name_len = 0;
+
+	if (new_name != NULL)
+		name_len = strlen(new_name);
+
+	cmd = calloc(1, sizeof(*cmd) + name_len);
+	cmd->new_name_len = name_len;
+
+	if (name_len > 0)
+		strcpy(cmd->new_name, new_name);
+
+	cmd->detach_term = detach_term;
+
+	struct sockaddr_un local;
+	int s, len, r;
+	local.sun_family = AF_UNIX;
+	strlcpy(local.sun_path, full_name, sizeof(local.sun_path));
+	len = strlen(local.sun_path) + sizeof(local.sun_family);
+
+	s = socket(AF_UNIX, SOCK_STREAM, 0);
+	r = connect(s, (struct sockaddr *)&local, len);
+	if (r < 0)
+		die_perror("Self fork failed");
+
+	mutex_lock(&mutex);
+	fork_done = false;
+	r = kvm_ipc__send_msg(s, KVM_IPC_FORK, sizeof(*cmd) + name_len, (u8 *) cmd);
+	close(s);
+	while (!fork_done)
+		pthread_cond_wait(&cond, &mutex.mutex);
+	mutex_unlock(&mutex);
+
+	return r;
+}
+
+static int fork_complete(struct kvm *kvm, struct pre_copy_context *ctxt)
+{
+	pthread_cond_init(&cond, NULL);
+
+	return 0;
+}
+late_post_copy(fork_complete);
+
+static int fork_complete_parent(struct kvm *kvm, struct pre_copy_context *ctxt)
+{
+	mutex_lock(&mutex);
+	fork_done = true;
+	pthread_cond_signal(&cond);
+	mutex_unlock(&mutex);
+
+	return 0;
+}
+late_post_copy_parent(fork_complete_parent);
 
 static int kvm__create_socket(struct kvm *kvm)
 {
-	char full_name[PATH_MAX];
 	int s;
 	struct sockaddr_un local;
 	int len, r;

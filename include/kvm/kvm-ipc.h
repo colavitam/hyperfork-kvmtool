@@ -16,6 +16,7 @@ enum {
 	KVM_IPC_FORK	= 9,
 };
 
+int kvm_fork_self(struct kvm *kvm, bool detach_term, char *new_name);
 int kvm_ipc__register_handler(u32 type, void (*cb)(struct kvm *kvm,
 				int fd, u32 type, u32 len, u8 *msg));
 int kvm_ipc__init(struct kvm *kvm);
