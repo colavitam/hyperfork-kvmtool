@@ -818,10 +818,13 @@ static bool comm_out(struct ioport *ioport, struct kvm_cpu *vcpu, u16 port,
 		case COMM_DONE: {
 			struct rusage usage;
 			getrusage(RUSAGE_SELF, &usage);
+			struct timespec ttime;
+			clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ttime);
 
-			printf("U: %lld, S: %lld\n",
+			printf("U: %lld, S: %lld, T: %f\n",
 					1000000ULL * usage.ru_utime.tv_sec + usage.ru_utime.tv_usec,
-					1000000ULL * usage.ru_stime.tv_sec + usage.ru_stime.tv_usec);
+					1000000ULL * usage.ru_stime.tv_sec + usage.ru_stime.tv_usec,
+					(1000000000ULL * ttime.tv_sec + ttime.tv_nsec) / 1000.0);
 
 			kvm__reboot(vcpu->kvm);
 

@@ -151,10 +151,21 @@ void kvm_cpu__arch_pre_copy(struct kvm_cpu *vcpu, struct pre_copy_context *ctxt,
 	if (ioctl(vcpu->vcpu_fd, KVM_GET_XCRS, &ctxt->xcrs[vcpu_idx]) < 0)
 		die_perror("KVM_GET_XCRS failed");
 
+	if (ioctl(vcpu->vcpu_fd, KVM_GET_MP_STATE, &ctxt->mp_state[vcpu_idx]) < 0)
+		die_perror("KVM_GET_MP_STATE failed");
+
+	if (ioctl(vcpu->vcpu_fd, KVM_GET_DEBUGREGS, &ctxt->debugregs[vcpu_idx]) < 0)
+		die_perror("KVM_GET_DEBUGREGS failed");
+
 	ctxt->msrs[vcpu_idx] = calloc(1,
 			sizeof(*vcpu->msrs) + (sizeof(struct kvm_msr_entry) * vcpu->msrs->nmsrs));
 	if (ctxt->msrs[vcpu_idx] == NULL)
 		die_perror("MSR alloc failed");
+
+	/*
+	if ((ctxt->tsc_khz = ioctl(vcpu->vcpu_fd, KVM_GET_TSC_KHZ)) < 0)
+		die_perror("KVM_GET_TSC_KHZ failed");
+		*/
 
 	ctxt->msrs[vcpu_idx]->nmsrs = vcpu->msrs->nmsrs;
 	ctxt->msrs[vcpu_idx]->pad = vcpu->msrs->pad;
@@ -198,16 +209,20 @@ int kvm_cpu__arch_post_copy(struct kvm_cpu *vcpu, unsigned long cpu_id,
 
 	vcpu->is_running = true;
 
-	/*
 	if (ioctl(vcpu->vcpu_fd, KVM_SET_XSAVE, &ctxt->xsave[cpu_id]) < 0)
 		die_perror("KVM_SET_XSAVE failed");
-		*/
 
 	if (ioctl(vcpu->vcpu_fd, KVM_SET_REGS, &ctxt->regs[cpu_id]) < 0)
 		die_perror("KVM_SET_REGS failed");
 
 	if (ioctl(vcpu->vcpu_fd, KVM_SET_FPU, &ctxt->fpu[cpu_id]) < 0)
 		die_perror("KVM_SET_FPU failed");
+
+	/* TODO: there is something rotten with the TSC. kvm-clock causes guest to hang
+	printf("Setting: %d\n", ctxt->tsc_khz);
+	if (ioctl(vcpu->vcpu_fd, KVM_SET_TSC_KHZ, ctxt->tsc_khz) < 0)
+		die_perror("KVM_SET_TSC_KHZ failed");
+		*/
 
 	if (ioctl(vcpu->vcpu_fd, KVM_SET_MSRS, ctxt->msrs[cpu_id]) < 0)
 		die_perror("KVM_SET_MSRS failed");
@@ -233,6 +248,17 @@ int kvm_cpu__arch_post_copy(struct kvm_cpu *vcpu, unsigned long cpu_id,
 
 	if (ioctl(vcpu->vcpu_fd, KVM_SET_XCRS, &ctxt->xcrs[cpu_id]) < 0)
 		die_perror("KVM_SET_XCRS failed");
+
+	if (ioctl(vcpu->vcpu_fd, KVM_SET_MP_STATE, &ctxt->mp_state[cpu_id]) < 0)
+		die_perror("KVM_SET_MP_STATE failed");
+
+	if (ioctl(vcpu->vcpu_fd, KVM_SET_DEBUGREGS, &ctxt->debugregs[cpu_id]) < 0)
+		die_perror("KVM_SET_DEBUGREGS failed");
+
+	/*
+	if (ioctl(vcpu->vcpu_fd, KVM_KVMCLOCK_CTRL, 0) < 0)
+		die_perror("KVM_KVMCLOCK_CTRL failed");
+		*/
 
 	return 0;
 }

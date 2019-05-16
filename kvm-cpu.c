@@ -308,26 +308,29 @@ base_init(kvm_cpu__init);
 
 int kvm_cpu__pre_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 {
+	ctxt->regs = calloc(kvm->nrcpus, sizeof(*ctxt->regs));
+	ctxt->sregs = calloc(kvm->nrcpus, sizeof(*ctxt->sregs));
+	ctxt->fpu = calloc(kvm->nrcpus, sizeof(*ctxt->fpu));
+	ctxt->msrs = calloc(kvm->nrcpus, sizeof(*ctxt->msrs));
+	ctxt->xsave = calloc(kvm->nrcpus, sizeof(*ctxt->xsave));
+	ctxt->events = calloc(kvm->nrcpus, sizeof(*ctxt->events));
+	ctxt->lapic = calloc(kvm->nrcpus, sizeof(*ctxt->lapic));
+	ctxt->xcrs = calloc(kvm->nrcpus, sizeof(*ctxt->xcrs));
+	ctxt->mp_state = calloc(kvm->nrcpus, sizeof(*ctxt->mp_state));
+	ctxt->debugregs = calloc(kvm->nrcpus, sizeof(*ctxt->debugregs));
+
 	for (int i = 0; i < kvm->nrcpus; i++) {
 		if (!kvm->cpus[i]) {
 			pr_warning("KVM VCPU found uninitialized");
 			goto fail;
 		}
-		ctxt->regs = calloc(kvm->nrcpus, sizeof(*ctxt->regs));
-		ctxt->sregs = calloc(kvm->nrcpus, sizeof(*ctxt->sregs));
-		ctxt->fpu = calloc(kvm->nrcpus, sizeof(*ctxt->fpu));
-		ctxt->msrs = calloc(kvm->nrcpus, sizeof(*ctxt->msrs));
-		ctxt->xsave = calloc(kvm->nrcpus, sizeof(*ctxt->xsave));
-		ctxt->events = calloc(kvm->nrcpus, sizeof(*ctxt->events));
-		ctxt->lapic = calloc(kvm->nrcpus, sizeof(*ctxt->lapic));
-		ctxt->xcrs = calloc(kvm->nrcpus, sizeof(*ctxt->xcrs));
 		kvm_cpu__arch_pre_copy(kvm->cpus[i], ctxt, i);
 	}
 
-  return 0;
+	return 0;
 
 fail:
-  return -ENOMEM;
+	return -ENOMEM;
 }
 base_pre_copy(kvm_cpu__pre_copy);
 

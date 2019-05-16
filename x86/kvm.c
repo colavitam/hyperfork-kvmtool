@@ -186,6 +186,9 @@ int kvm__arch_pre_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 	if (ioctl(kvm->vm_fd, KVM_GET_CLOCK, &ctxt->clock_data) < 0)
 		die_perror("KVM_GET_CLOCK failed");
 
+	if (ioctl(kvm->vm_fd, KVM_GET_PIT2, &ctxt->pit2) < 0)
+		die_perror("KVM_GET_PIT2 failed");
+
 	return 0;
 }
 
@@ -244,6 +247,9 @@ void kvm__arch_post_copy(struct kvm *kvm, const char *hugetlbfs_path, u64 ram_si
 
 	if (ioctl(kvm->vm_fd, KVM_SET_IRQCHIP, &ctxt->irqchip[2]) < 0)
 		die_perror("KVM_SET_IRQCHIP IOAPIC failed");
+
+	if (ioctl(kvm->vm_fd, KVM_SET_PIT2, &ctxt->pit2) < 0)
+		die_perror("KVM_SET_PIT2 failed");
 
 	ctxt->clock_data.flags = 0;
 

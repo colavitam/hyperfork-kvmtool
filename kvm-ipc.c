@@ -87,6 +87,7 @@ late_pre_copy(fork_pre_fork);
 
 static int fork_complete(struct kvm *kvm, struct pre_copy_context *ctxt)
 {
+	fork_done = true;
 	mutex_unlock(&mutex);
 	pthread_cond_init(&cond, NULL);
 
