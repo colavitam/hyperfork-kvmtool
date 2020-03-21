@@ -606,11 +606,32 @@ void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
 	if (init_list__pre_copy(kvm, &ctxt) < 0)
 		die ("Pre copy failed");
 
+  printf("Forking from %d\n", getpid());
+  fflush(stdout);
+  if (kvm->cfg.cleargmap) {
+    for (unsigned i = 0; i < kvm->mem_slots; i ++) {
+      struct kvm_userspace_memory_region mem = (struct kvm_userspace_memory_region) {
+        .slot			= i,
+        .guest_phys_addr	= 0,
+        .memory_size		= 0,
+        .userspace_addr		= 0,
+      };
+      int r = ioctl(kvm->vm_fd, KVM_SET_USER_MEMORY_REGION, &mem);
+      if (r < 0)
+        die("Failed to free mem");
+    }
+    kvm->mem_slots = 0;
+  }
 	int pid = fork();
 	if (pid < 0) {
 		die("Failed to fork process");
 	} else if (pid == 0) {
 		// Child
+    fflush(stdout);
+    pid = fork();
+    if (pid < 0) {
+      die("Failed to fork process");
+    }
 		sprintf(name, "guest-%u", getpid());
 		kvm->cfg.guest_name = name;
 
@@ -639,12 +660,13 @@ void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
 		long long mso = 1000000 * tm.tv_sec + tm.tv_usec;
 		long long msn = 1000000 * tm2.tv_sec + tm2.tv_usec;
 
-		printf("Time: %lld usec\n", msn - mso);
+		printf("Time: Fork: %lld usec\n", msn - mso);
 		int ret = kvm_cmd_run_work(kvm);
 		kvm_cmd_run_exit(kvm, ret);
 
 		exit(0);
 	} else {
+    exit(0);
 		if (init_list__post_copy_parent(kvm, &ctxt) < 0)
 			die ("Post copy parent failed");
 	}

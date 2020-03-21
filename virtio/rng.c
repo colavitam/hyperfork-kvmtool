@@ -170,7 +170,7 @@ int virtio_rng__init(struct kvm *kvm)
 	if (rdev == NULL)
 		return -ENOMEM;
 
-	rdev->fd = open("/dev/random", O_RDONLY | O_NONBLOCK);
+	rdev->fd = open("/dev/urandom", O_RDONLY | O_NONBLOCK);
 	if (rdev->fd < 0) {
 		r = rdev->fd;
 		goto cleanup;

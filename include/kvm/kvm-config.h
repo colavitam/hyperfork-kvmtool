@@ -27,6 +27,8 @@ struct kvm_config {
 	u8 num_net_devices;
 	u8 num_vfio_devices;
 	bool virtio_rng;
+	bool hugetlbmmap;
+	bool cleargmap;
 	int active_console;
 	int debug_iodelay;
 	int nrcpus;

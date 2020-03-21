@@ -128,6 +128,6 @@ void *mmap_anon_or_hugetlbfs(struct kvm *kvm, const char *hugetlbfs_path, u64 si
 		return mmap_hugetlbfs(kvm, hugetlbfs_path, size);
 	else {
 		kvm->ram_pagesize = getpagesize();
-		return mmap(NULL, size, PROT_RW, MAP_ANON_NORESERVE, -1, 0);
+		return mmap(NULL, size, PROT_RW, MAP_ANONYMOUS | MAP_PRIVATE | (kvm->cfg.hugetlbmmap ? MAP_HUGETLB : 0), -1, 0);
 	}
 }

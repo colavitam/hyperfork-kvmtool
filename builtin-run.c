@@ -44,6 +44,7 @@
 #include <sys/utsname.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <termios.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -70,6 +71,16 @@ static const char * const run_usage[] = {
 enum {
 	KVM_RUN_DEFAULT,
 	KVM_RUN_SANDBOX,
+};
+
+static struct timespec base = {
+  .tv_sec = 0,
+  .tv_nsec = 0
+};
+
+static struct timeval raw_base = {
+  .tv_sec = 0,
+  .tv_usec = 0
 };
 
 static int img_name_parser(const struct option *opt, const char *arg, int unset)
@@ -116,6 +127,10 @@ void kvm_run_set_wrapper_sandbox(void)
 	OPT_BOOLEAN('\0', "sdl", &(cfg)->sdl, "Enable SDL framebuffer"),\
 	OPT_BOOLEAN('\0', "rng", &(cfg)->virtio_rng, "Enable virtio"	\
 			" Random Number Generator"),			\
+	OPT_BOOLEAN('\0', "hugetlbmmap", &(cfg)->hugetlbmmap, "Request hugepages"	\
+			" Request hugepages for mmap"),			\
+	OPT_BOOLEAN('\0', "cleargmap", &(cfg)->cleargmap, "Clear guest mappings"	\
+			" Clear guest mappnigs prior to fork"),			\
 	OPT_CALLBACK('\0', "9p", NULL, "dir_to_share,tag_name",		\
 		     "Enable virtio 9p to share files between host and"	\
 		     " guest", virtio_9p_rootdir_parser, kvm),		\
@@ -466,6 +481,8 @@ static struct kvm *kvm_cmd_run_init(int argc, const char **argv)
 	struct kvm *kvm = kvm__new();
 	bool video;
 
+  gettimeofday(&raw_base, NULL);
+
 	if (IS_ERR(kvm))
 		return kvm;
 
@@ -800,6 +817,7 @@ static bool comm_in(struct ioport *ioport, struct kvm_cpu *vcpu, u16 port, void 
 
 #define COMM_TRIGGER_FORK 0x10
 #define COMM_DONE 0x20
+#define COMM_RESET 0x30
 
 static bool comm_out(struct ioport *ioport, struct kvm_cpu *vcpu, u16 port,
 		void *data, int size)
@@ -807,6 +825,7 @@ static bool comm_out(struct ioport *ioport, struct kvm_cpu *vcpu, u16 port,
 	int r;
 
 	u8 val = ioport__read8(data);
+  //printf("Received trigger: %d\n", val);
 	switch (val) {
 		case COMM_TRIGGER_FORK:
 			r = kvm_fork_self(vcpu->kvm, true, NULL);
@@ -820,15 +839,58 @@ static bool comm_out(struct ioport *ioport, struct kvm_cpu *vcpu, u16 port,
 			getrusage(RUSAGE_SELF, &usage);
 			struct timespec ttime;
 			clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ttime);
+			struct timeval raw;
+			gettimeofday(&raw, NULL);
 
-			printf("U: %lld, S: %lld, T: %f\n",
+      /*
+			printf("Time: U: %lld, S: %lld, T: %f, W: %lld usec\n",
 					1000000ULL * usage.ru_utime.tv_sec + usage.ru_utime.tv_usec,
 					1000000ULL * usage.ru_stime.tv_sec + usage.ru_stime.tv_usec,
-					(1000000000ULL * ttime.tv_sec + ttime.tv_nsec) / 1000.0);
+					(1000000000ULL * ttime.tv_sec + ttime.tv_nsec) / 1000.0 -
+					(1000000000ULL * base.tv_sec + base.tv_nsec) / 1000.0,
+					1000000ULL * raw.tv_sec + raw.tv_usec -
+					(1000000ULL * raw_base.tv_sec + raw_base.tv_usec)
+					);
+          */
+      printf("Exit: %d\n", getpid());
 
 			kvm__reboot(vcpu->kvm);
+			// while (wait(NULL) > 0);
+
+			/*
+			struct rusage cumul;
+			struct rusage self;
+			getrusage(RUSAGE_CHILDREN, &cumul);
+			getrusage(RUSAGE_SELF, &self);
+			cumul.ru_stime.tv_sec += self.ru_stime.tv_sec;
+			cumul.ru_stime.tv_usec += self.ru_stime.tv_usec;
+			cumul.ru_utime.tv_sec += self.ru_utime.tv_sec;
+			cumul.ru_utime.tv_usec += self.ru_utime.tv_usec;
+
+			printf("Time: U: %lld, S: %lld, RSS: %ld\n",
+					1000000ULL * cumul.ru_utime.tv_sec + cumul.ru_utime.tv_usec,
+					1000000ULL * cumul.ru_stime.tv_sec + cumul.ru_stime.tv_usec,
+					cumul.ru_maxrss
+					);
+					*/
 
 			break;
+		}
+		case COMM_RESET: {
+      static int reset_counter = 0;
+      reset_counter ++;
+			struct timeval raw;
+			gettimeofday(&raw, NULL);
+
+			printf("Counter %d: W: %lld usec\n",
+          reset_counter,
+					1000000ULL * raw.tv_sec + raw.tv_usec -
+					(1000000ULL * raw_base.tv_sec + raw_base.tv_usec)
+					);
+      fflush(stdout);
+
+			clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &base);
+			gettimeofday(&raw_base, NULL);
 		}
 	}
 
