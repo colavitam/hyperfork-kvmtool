@@ -477,6 +477,21 @@ int kvm__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt)
 }
 core_post_copy(kvm__post_copy);
 
+int kvm__post_copy_parent(struct kvm *kvm, struct pre_copy_context *ctxt)
+{
+	struct kvm_mem_bank *bank, *tmp;
+
+	list_for_each_entry_safe(bank, tmp, &kvm->mem_banks, list) {
+		list_del(&bank->list);
+		free(bank);
+	}
+
+	kvm__init_ram(kvm);
+
+  return 0;
+}
+core_post_copy_parent(kvm__post_copy_parent);
+
 /* RFC 1952 */
 #define GZIP_ID1		0x1f
 #define GZIP_ID2		0x8b
@@ -627,11 +642,6 @@ void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
 		die("Failed to fork process");
 	} else if (pid == 0) {
 		// Child
-    fflush(stdout);
-    pid = fork();
-    if (pid < 0) {
-      die("Failed to fork process");
-    }
 		sprintf(name, "guest-%u", getpid());
 		kvm->cfg.guest_name = name;
 
@@ -666,7 +676,6 @@ void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
 
 		exit(0);
 	} else {
-    exit(0);
 		if (init_list__post_copy_parent(kvm, &ctxt) < 0)
 			die ("Post copy parent failed");
 	}

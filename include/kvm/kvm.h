@@ -108,6 +108,7 @@ const char *kvm__get_dir(void);
 
 int kvm__init(struct kvm *kvm);
 int kvm__post_copy(struct kvm *kvm, struct pre_copy_context *ctxt);
+int kvm__post_copy_parent(struct kvm *kvm, struct pre_copy_context *ctxt);
 int kvm__pre_copy(struct kvm *kvm, struct pre_copy_context *ctxt);
 struct kvm *kvm__new(void);
 int kvm__recommended_cpus(struct kvm *kvm);
