@@ -481,6 +481,9 @@ int kvm__post_copy_parent(struct kvm *kvm, struct pre_copy_context *ctxt)
 {
 	struct kvm_mem_bank *bank, *tmp;
 
+  if (!kvm->cfg.cleargmap)
+    return 0;
+
 	list_for_each_entry_safe(bank, tmp, &kvm->mem_banks, list) {
 		list_del(&bank->list);
 		free(bank);
