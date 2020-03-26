@@ -639,7 +639,34 @@ void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
     }
     kvm->mem_slots = 0;
   }
-	int pid = fork();
+	int pid;
+  if (kvm->cfg.forkmode != FORKMODE_THROUGHPUT)
+    pid = fork();
+  else {
+    int i;
+    /* Spawn off simul children */
+    for (i = 0; i < MIN(kvm->cfg.forksimul, kvm->cfg.forkcount); i ++) {
+			gettimeofday(&raw_base, NULL);
+      pid = fork();
+      if (pid == 0)
+        break;
+    }
+    if (pid != 0) {
+      /* If the parent, then wait for them to exit and spawn as they do */
+      for (int i = 0; i < kvm->cfg.forkcount; i ++) {
+        while (wait(NULL) == -1);
+        gettimeofday(&raw_base, NULL);
+        pid = fork();
+        if (pid == 0)
+          break;
+      }
+    }
+    if (pid != 0) {
+      while (wait(NULL) != -1 || errno != ECHILD);
+      kvm_ipc__exit(kvm);
+      exit(0);
+    }
+  }
 	if (pid < 0) {
 		die("Failed to fork process");
 	} else if (pid == 0) {
@@ -671,6 +698,12 @@ void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
 
 		exit(0);
 	} else {
+    if (kvm->cfg.forkmode == FORKMODE_FREEZE_PARENT) {
+      while (wait(NULL) != -1 || errno != ECHILD);
+      kvm_ipc__exit(kvm);
+      exit(0);
+    }
+
 		if (init_list__post_copy_parent(kvm, &ctxt) < 0)
 			die ("Post copy parent failed");
 	}

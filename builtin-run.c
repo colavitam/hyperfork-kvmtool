@@ -38,7 +38,6 @@
 
 #include <linux/types.h>
 #include <linux/err.h>
-#include <sys/time.h>
 #include <sys/resource.h>
 
 #include <sys/utsname.h>
@@ -78,7 +77,7 @@ static struct timespec base = {
   .tv_nsec = 0
 };
 
-static struct timeval raw_base = {
+struct timeval raw_base = {
   .tv_sec = 0,
   .tv_usec = 0
 };
@@ -111,6 +110,9 @@ void kvm_run_set_wrapper_sandbox(void)
 	OPT_STRING('\0', "name", &(cfg)->guest_name, "guest name",	\
 			"A name for the guest"),			\
 	OPT_INTEGER('c', "cpus", &(cfg)->nrcpus, "Number of CPUs"),	\
+	OPT_INTEGER('\0', "forkmode", &(cfg)->forkmode, "Fork mode"),	\
+	OPT_INTEGER('\0', "forksimul", &(cfg)->forksimul, "Fork simultaneous count"),	\
+	OPT_INTEGER('\0', "forkcount", &(cfg)->forkcount, "Throughput test count"),	\
 	OPT_U64('m', "mem", &(cfg)->ram_size, "Virtual machine memory"	\
 		" size in MiB."),					\
 	OPT_CALLBACK('\0', "shmem", NULL,				\
@@ -674,6 +676,39 @@ static struct kvm *kvm_cmd_run_init(int argc, const char **argv)
 		       kvm->cfg.nrcpus, kvm->cfg.guest_name);
 	}
 
+  if (kvm->cfg.forkmode == FORKMODE_THROUGHPUT_NOFORK) {
+    int i, pid;
+    /* Spawn off simul children */
+    for (i = 0; i < MIN(kvm->cfg.forksimul, kvm->cfg.forkcount); i ++) {
+			gettimeofday(&raw_base, NULL);
+      pid = fork();
+      if (pid == 0)
+        break;
+    }
+    if (pid != 0) {
+      /* If the parent, then wait for them to exit and spawn as they do */
+      for (int i = 0; i < kvm->cfg.forkcount; i ++) {
+        while (wait(NULL) == -1);
+        gettimeofday(&raw_base, NULL);
+        pid = fork();
+        if (pid == 0)
+          break;
+      }
+    }
+    if (pid != 0) {
+      while (wait(NULL) != -1 || errno != ECHILD);
+      exit(0);
+    }
+
+    /* New name for guest */
+    if (kvm->cfg.custom_rootfs) {
+      kvm->cfg.guest_name = kvm->cfg.custom_rootfs_name;
+    } else {
+      sprintf(default_name, "guest-%u", getpid());
+      kvm->cfg.guest_name = default_name;
+    }
+  }
+
 	if (init_list__init(kvm) < 0)
 		die ("Initialisation failed");
 
@@ -828,6 +863,9 @@ static bool comm_out(struct ioport *ioport, struct kvm_cpu *vcpu, u16 port,
   //printf("Received trigger: %d\n", val);
 	switch (val) {
 		case COMM_TRIGGER_FORK:
+      if (vcpu->kvm->cfg.forkmode == FORKMODE_THROUGHPUT_NOFORK)
+        break;
+
 			r = kvm_fork_self(vcpu->kvm, true, NULL);
 			if (r != 0)
 				die_perror("Fork failed");
@@ -835,6 +873,7 @@ static bool comm_out(struct ioport *ioport, struct kvm_cpu *vcpu, u16 port,
 			break;
 		default:
 		case COMM_DONE: {
+      /*
 			struct rusage usage;
 			getrusage(RUSAGE_SELF, &usage);
 			struct timespec ttime;
@@ -842,7 +881,6 @@ static bool comm_out(struct ioport *ioport, struct kvm_cpu *vcpu, u16 port,
 			struct timeval raw;
 			gettimeofday(&raw, NULL);
 
-      /*
 			printf("Time: U: %lld, S: %lld, T: %f, W: %lld usec\n",
 					1000000ULL * usage.ru_utime.tv_sec + usage.ru_utime.tv_usec,
 					1000000ULL * usage.ru_stime.tv_sec + usage.ru_stime.tv_usec,
@@ -853,6 +891,8 @@ static bool comm_out(struct ioport *ioport, struct kvm_cpu *vcpu, u16 port,
 					);
           */
       printf("Exit: %d\n", getpid());
+      kvm_ipc__exit(vcpu->kvm);
+      exit(0);
 
 			kvm__reboot(vcpu->kvm);
 			// while (wait(NULL) > 0);

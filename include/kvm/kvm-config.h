@@ -18,6 +18,11 @@
 #define MIN_RAM_SIZE_MB		(64ULL)
 #define MIN_RAM_SIZE_BYTE	(MIN_RAM_SIZE_MB << MB_SHIFT)
 
+#define FORKMODE_FREEZE_PARENT 0
+#define FORKMODE_NORMAL 1
+#define FORKMODE_THROUGHPUT 2
+#define FORKMODE_THROUGHPUT_NOFORK 3
+
 struct kvm_config {
 	struct kvm_config_arch arch;
 	struct disk_image_params disk_image[MAX_DISK_IMAGES];
@@ -29,6 +34,9 @@ struct kvm_config {
 	bool virtio_rng;
 	bool hugetlbmmap;
 	bool cleargmap;
+  int forkmode;
+  int forksimul;
+  int forkcount;
 	int active_console;
 	int debug_iodelay;
 	int nrcpus;

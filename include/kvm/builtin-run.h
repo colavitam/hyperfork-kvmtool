@@ -1,6 +1,7 @@
 #ifndef __KVM_RUN_H__
 #define __KVM_RUN_H__
 
+#include <sys/time.h>
 #include <kvm/util.h>
 
 struct fork_cmd_params {
@@ -8,6 +9,8 @@ struct fork_cmd_params {
 	u32 new_name_len;
 	char new_name[];
 };
+
+extern struct timeval raw_base;
 
 int kvm_cmd_run(int argc, const char **argv, const char *prefix);
 void kvm_run_help(void) NORETURN;
