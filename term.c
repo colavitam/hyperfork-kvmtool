@@ -213,6 +213,9 @@ static int term_init(struct kvm *kvm)
 	struct termios term;
 	int i, r;
 
+	term_detach(0);
+  return 0;
+
 	for (i = 0; i < TERM_MAX_DEVS; i++)
 		if (term_fds[i][TERM_FD_IN] == 0) {
 			term_fds[i][TERM_FD_IN] = STDIN_FILENO;
@@ -235,7 +238,6 @@ static int term_init(struct kvm *kvm)
 	tcsetattr(STDIN_FILENO, TCSANOW, &term);
 
 
-	//term_detach(0);
 	/* Use our own blocking thread to read stdin, don't require a tick */
 	if(pthread_create(&term_poll_thread, NULL, term_poll_thread_loop,kvm))
 		die("Unable to create console input poll thread\n");

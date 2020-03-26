@@ -19,7 +19,7 @@ include config/utilities.mak
 include config/feature-tests.mak
 
 CC	:= $(CROSS_COMPILE)gcc
-CFLAGS	:=
+CFLAGS	:= #-fno-omit-frame-pointer
 LD	:= $(CROSS_COMPILE)ld
 LDFLAGS	:=
 

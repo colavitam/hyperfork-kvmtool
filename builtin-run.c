@@ -882,7 +882,7 @@ static bool comm_out(struct ioport *ioport, struct kvm_cpu *vcpu, u16 port,
 			struct timeval raw;
 			gettimeofday(&raw, NULL);
 
-			printf("Counter %d: W: %lld usec\n",
+			printf("Counter %d: %lld\n",
           reset_counter,
 					1000000ULL * raw.tv_sec + raw.tv_usec -
 					(1000000ULL * raw_base.tv_sec + raw_base.tv_usec)

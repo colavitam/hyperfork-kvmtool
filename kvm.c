@@ -624,7 +624,6 @@ void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
 	if (init_list__pre_copy(kvm, &ctxt) < 0)
 		die ("Pre copy failed");
 
-  printf("Forking from %d\n", getpid());
   fflush(stdout);
   if (kvm->cfg.cleargmap) {
     for (unsigned i = 0; i < kvm->mem_slots; i ++) {
@@ -667,13 +666,6 @@ void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
 		 * that just means waiting on the VCPU0 thread to exit and then
 		 * exiting gracefully. */
 
-		struct timeval tm2;
-		gettimeofday(&tm2, NULL);
-
-		long long mso = 1000000 * tm.tv_sec + tm.tv_usec;
-		long long msn = 1000000 * tm2.tv_sec + tm2.tv_usec;
-
-		printf("Time: Fork: %lld usec\n", msn - mso);
 		int ret = kvm_cmd_run_work(kvm);
 		kvm_cmd_run_exit(kvm, ret);
 
