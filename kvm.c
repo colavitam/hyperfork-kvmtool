@@ -612,12 +612,18 @@ void kvm__pause(struct kvm *kvm)
 	close(pause_event);
 }
 
-static int do_throughput(struct kvm *kvm, int forksimul, int forkcount, bool secondary)
+static int do_throughput(struct kvm *kvm, int forksimul, int forkcount, bool aslr_mitigate, int avail_aslr, int avail_parallel)
 {
   int i, pid;
   /* Spawn off simul children */
   for (i = 0; i < MIN(forksimul, forkcount); i ++) {
-    if (i != 0 || !secondary) {
+    if (aslr_mitigate) {
+      uint64_t dummy;
+      assert(read(avail_parallel, &dummy, sizeof(dummy)) == 8);
+    }
+    printf("Spawn job\n");
+
+    if (i != 0 || !aslr_mitigate) {
       /* The first fork should include the time since the ASLR split */
       gettimeofday(&raw_base, NULL);
     }
@@ -636,7 +642,15 @@ static int do_throughput(struct kvm *kvm, int forksimul, int forkcount, bool sec
     }
   }
   if (pid != 0) {
-    while (wait(NULL) != -1 || errno != ECHILD);
+    for(i = 0; i < MIN(forksimul, forkcount); i ++) {
+      while (wait(NULL) != -1);
+      if (aslr_mitigate) {
+        uint64_t dummy = 1;
+        if (i == 0)
+          assert(write(avail_aslr, &dummy, sizeof(dummy)) == 8);
+        assert(write(avail_parallel, &dummy, sizeof(dummy)) == 8);
+      }
+    }
     kvm_ipc__exit(kvm);
     exit(0);
   }
@@ -675,20 +689,48 @@ void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
 	int pid;
   if (kvm->cfg.forkmode == FORKMODE_THROUGHPUT_MITIGATE) {
     static bool mitigate_forked = false;
+    static int avail_aslr = -1;
+    static int avail_parallel = -1;
+
     int total_fresh = kvm->cfg.forkcount / kvm->cfg.aslrcap;
+    int init_fresh = (kvm->cfg.forksimul + kvm->cfg.aslrcap - 1) / kvm->cfg.aslrcap;
     assert (kvm->cfg.forkcount % kvm->cfg.aslrcap == 0);
+
+    if (avail_aslr == -1) {
+      avail_aslr = eventfd(init_fresh, EFD_SEMAPHORE);
+      avail_parallel = eventfd(kvm->cfg.forksimul, EFD_SEMAPHORE);
+    }
+    assert (avail_aslr >= 0);
+    assert (avail_parallel >= 0);
+
+
     if (mitigate_forked) {
       /* We have reached the task body */
-      pid = do_throughput(kvm, kvm->cfg.forksimul, kvm->cfg.aslrcap, true);
+      pid = do_throughput(kvm, kvm->cfg.forksimul, kvm->cfg.aslrcap, true, avail_aslr, avail_parallel);
     } else {
       /* We have reached the pre-ASLR resume point */
+      int i;
       mitigate_forked = true;
-      pid = do_throughput(kvm, 1, total_fresh, false);
+      for (i = 0; i < total_fresh; i ++) {
+        uint64_t dummy;
+        assert(read(avail_aslr, &dummy, sizeof(dummy)) == 8);
+
+        gettimeofday(&raw_base, NULL);
+        printf("Spawn ASLR\n");
+        pid = fork();
+        if (pid == 0)
+          break;
+      }
+      if (pid != 0) {
+        while (wait(NULL) != -1 || errno != ECHILD);
+        kvm_ipc__exit(kvm);
+        exit(0);
+      }
     }
   } else if (kvm->cfg.forkmode != FORKMODE_THROUGHPUT)
     pid = fork();
   else
-    pid = do_throughput(kvm, kvm->cfg.forksimul, kvm->cfg.forkcount, false);
+    pid = do_throughput(kvm, kvm->cfg.forksimul, kvm->cfg.forkcount, false, 0, 0);
 
 	if (pid < 0) {
 		die("Failed to fork process");
