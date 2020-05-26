@@ -622,6 +622,7 @@ static int do_throughput(struct kvm *kvm, int forksimul, int forkcount, bool asl
       assert(read(avail_parallel, &dummy, sizeof(dummy)) == 8);
     }
     printf("Spawn job\n");
+    fflush(stdout);
 
     if (i != 0 || !aslr_mitigate) {
       /* The first fork should include the time since the ASLR split */
@@ -717,6 +718,7 @@ void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
 
         gettimeofday(&raw_base, NULL);
         printf("Spawn ASLR\n");
+        fflush(stdout);
         pid = fork();
         if (pid == 0)
           break;
