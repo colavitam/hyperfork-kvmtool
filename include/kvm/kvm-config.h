@@ -22,6 +22,7 @@
 #define FORKMODE_NORMAL 1
 #define FORKMODE_THROUGHPUT 2
 #define FORKMODE_THROUGHPUT_NOFORK 3
+#define FORKMODE_THROUGHPUT_MITIGATE 4
 
 struct kvm_config {
 	struct kvm_config_arch arch;
@@ -37,6 +38,7 @@ struct kvm_config {
   int forkmode;
   int forksimul;
   int forkcount;
+  int aslrcap;
 	int active_console;
 	int debug_iodelay;
 	int nrcpus;

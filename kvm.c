@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <assert.h>
 #include <time.h>
 #include <sys/eventfd.h>
 #include <asm/unistd.h>
@@ -611,6 +612,38 @@ void kvm__pause(struct kvm *kvm)
 	close(pause_event);
 }
 
+static int do_throughput(struct kvm *kvm, int forksimul, int forkcount, bool secondary)
+{
+  int i, pid;
+  /* Spawn off simul children */
+  for (i = 0; i < MIN(forksimul, forkcount); i ++) {
+    if (i != 0 || !secondary) {
+      /* The first fork should include the time since the ASLR split */
+      gettimeofday(&raw_base, NULL);
+    }
+    pid = fork();
+    if (pid == 0)
+      break;
+  }
+  if (pid != 0) {
+    /* If the parent, then wait for them to exit and spawn as they do */
+    for (; i < forkcount; i ++) {
+      while (wait(NULL) == -1);
+      gettimeofday(&raw_base, NULL);
+      pid = fork();
+      if (pid == 0)
+        break;
+    }
+  }
+  if (pid != 0) {
+    while (wait(NULL) != -1 || errno != ECHILD);
+    kvm_ipc__exit(kvm);
+    exit(0);
+  }
+
+  return pid;
+}
+
 void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
 {
 	struct timeval tm;
@@ -640,33 +673,23 @@ void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
     kvm->mem_slots = 0;
   }
 	int pid;
-  if (kvm->cfg.forkmode != FORKMODE_THROUGHPUT)
+  if (kvm->cfg.forkmode == FORKMODE_THROUGHPUT_MITIGATE) {
+    static bool mitigate_forked = false;
+    int total_fresh = kvm->cfg.forkcount / kvm->cfg.aslrcap;
+    assert (kvm->cfg.forkcount % kvm->cfg.aslrcap == 0);
+    if (mitigate_forked) {
+      /* We have reached the task body */
+      pid = do_throughput(kvm, kvm->cfg.forksimul, kvm->cfg.aslrcap, true);
+    } else {
+      /* We have reached the pre-ASLR resume point */
+      mitigate_forked = true;
+      pid = do_throughput(kvm, 1, total_fresh, false);
+    }
+  } else if (kvm->cfg.forkmode != FORKMODE_THROUGHPUT)
     pid = fork();
-  else {
-    int i;
-    /* Spawn off simul children */
-    for (i = 0; i < MIN(kvm->cfg.forksimul, kvm->cfg.forkcount); i ++) {
-			gettimeofday(&raw_base, NULL);
-      pid = fork();
-      if (pid == 0)
-        break;
-    }
-    if (pid != 0) {
-      /* If the parent, then wait for them to exit and spawn as they do */
-      for (int i = 0; i < kvm->cfg.forkcount; i ++) {
-        while (wait(NULL) == -1);
-        gettimeofday(&raw_base, NULL);
-        pid = fork();
-        if (pid == 0)
-          break;
-      }
-    }
-    if (pid != 0) {
-      while (wait(NULL) != -1 || errno != ECHILD);
-      kvm_ipc__exit(kvm);
-      exit(0);
-    }
-  }
+  else
+    pid = do_throughput(kvm, kvm->cfg.forksimul, kvm->cfg.forkcount, false);
+
 	if (pid < 0) {
 		die("Failed to fork process");
 	} else if (pid == 0) {

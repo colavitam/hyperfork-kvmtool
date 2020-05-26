@@ -113,6 +113,7 @@ void kvm_run_set_wrapper_sandbox(void)
 	OPT_INTEGER('\0', "forkmode", &(cfg)->forkmode, "Fork mode"),	\
 	OPT_INTEGER('\0', "forksimul", &(cfg)->forksimul, "Fork simultaneous count"),	\
 	OPT_INTEGER('\0', "forkcount", &(cfg)->forkcount, "Throughput test count"),	\
+	OPT_INTEGER('\0', "aslrcap", &(cfg)->aslrcap, "Number of jobs per ASLR refresh"),	\
 	OPT_U64('m', "mem", &(cfg)->ram_size, "Virtual machine memory"	\
 		" size in MiB."),					\
 	OPT_CALLBACK('\0', "shmem", NULL,				\
