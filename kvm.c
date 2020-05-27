@@ -617,7 +617,7 @@ static int do_throughput(struct kvm *kvm, int forksimul, int forkcount, bool asl
   int i, pid;
   /* Spawn off simul children */
   for (i = 0; i < MIN(forksimul, forkcount); i ++) {
-    if (aslr_mitigate) {
+    if (aslr_mitigate && i != 0) {
       uint64_t dummy;
       assert(read(avail_parallel, &dummy, sizeof(dummy)) == 8);
     }
@@ -720,6 +720,7 @@ void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
         uint64_t dummy;
         assert(read(done_aslr, &dummy, sizeof(dummy)) == 8);
         assert(read(avail_aslr, &dummy, sizeof(dummy)) == 8);
+        assert(read(avail_parallel, &dummy, sizeof(dummy)) == 8);
 
         gettimeofday(&raw_base, NULL);
         printf("Spawn ASLR\n");
