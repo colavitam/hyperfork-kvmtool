@@ -612,7 +612,7 @@ void kvm__pause(struct kvm *kvm)
 	close(pause_event);
 }
 
-static int do_throughput(struct kvm *kvm, int forksimul, int forkcount, bool aslr_mitigate, int avail_aslr, int avail_parallel)
+static int do_throughput(struct kvm *kvm, int forksimul, int forkcount, bool aslr_mitigate, int avail_aslr, int avail_parallel, int done_aslr)
 {
   int i, pid;
   /* Spawn off simul children */
@@ -634,6 +634,8 @@ static int do_throughput(struct kvm *kvm, int forksimul, int forkcount, bool asl
   }
   if (pid != 0) {
     /* If the parent, then wait for them to exit and spawn as they do */
+    uint64_t dummy = 1;
+    assert(write(done_aslr, &dummy, sizeof(dummy)) == 8);
     for (; i < forkcount; i ++) {
       while (wait(NULL) == -1);
       gettimeofday(&raw_base, NULL);
@@ -691,6 +693,7 @@ void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
   if (kvm->cfg.forkmode == FORKMODE_THROUGHPUT_MITIGATE) {
     static bool mitigate_forked = false;
     static int avail_aslr = -1;
+    static int done_aslr = -1;
     static int avail_parallel = -1;
 
     int total_fresh = kvm->cfg.forkcount / kvm->cfg.aslrcap;
@@ -699,6 +702,7 @@ void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
 
     if (avail_aslr == -1) {
       avail_aslr = eventfd(init_fresh, EFD_SEMAPHORE);
+      done_aslr = eventfd(1, EFD_SEMAPHORE);
       avail_parallel = eventfd(kvm->cfg.forksimul, EFD_SEMAPHORE);
     }
     assert (avail_aslr >= 0);
@@ -707,13 +711,14 @@ void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
 
     if (mitigate_forked) {
       /* We have reached the task body */
-      pid = do_throughput(kvm, kvm->cfg.forksimul, kvm->cfg.aslrcap, true, avail_aslr, avail_parallel);
+      pid = do_throughput(kvm, kvm->cfg.forksimul, kvm->cfg.aslrcap, true, avail_aslr, avail_parallel, done_aslr);
     } else {
       /* We have reached the pre-ASLR resume point */
       int i;
       mitigate_forked = true;
       for (i = 0; i < total_fresh; i ++) {
         uint64_t dummy;
+        assert(read(done_aslr, &dummy, sizeof(dummy)) == 8);
         assert(read(avail_aslr, &dummy, sizeof(dummy)) == 8);
 
         gettimeofday(&raw_base, NULL);
@@ -732,7 +737,7 @@ void kvm__fork(struct kvm *kvm, bool detach_term, char *new_name)
   } else if (kvm->cfg.forkmode != FORKMODE_THROUGHPUT)
     pid = fork();
   else
-    pid = do_throughput(kvm, kvm->cfg.forksimul, kvm->cfg.forkcount, false, 0, 0);
+    pid = do_throughput(kvm, kvm->cfg.forksimul, kvm->cfg.forkcount, false, 0, 0, 0);
 
 	if (pid < 0) {
 		die("Failed to fork process");
