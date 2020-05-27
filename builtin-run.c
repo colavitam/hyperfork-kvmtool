@@ -688,7 +688,7 @@ static struct kvm *kvm_cmd_run_init(int argc, const char **argv)
     }
     if (pid != 0) {
       /* If the parent, then wait for them to exit and spawn as they do */
-      for (int i = 0; i < kvm->cfg.forkcount; i ++) {
+      for (; i < kvm->cfg.forkcount; i ++) {
         while (wait(NULL) == -1);
         gettimeofday(&raw_base, NULL);
         pid = fork();
@@ -697,6 +697,7 @@ static struct kvm *kvm_cmd_run_init(int argc, const char **argv)
       }
     }
     if (pid != 0) {
+      printf("Here!\n");
       while (wait(NULL) != -1 || errno != ECHILD);
       exit(0);
     }
